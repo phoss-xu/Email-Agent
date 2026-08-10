@@ -1,0 +1,22 @@
+# 环境变量配置（包含敏感信息）
+.env
+.env.docker
+deploy.sh
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+
+# 缓存文件
+notified_cache.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store

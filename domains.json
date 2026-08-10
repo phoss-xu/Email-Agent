@@ -1,0 +1,36 @@
+{
+  "important_domains": [
+    "apple.com",
+    "icloud.com",
+    "google.com",
+    "gmail.com",
+    "somfy.com",
+    "aqara.com",
+    "lumiunited.com",
+    "qoder.com.cn",
+    "microsoft.com",
+    "amazon.com",
+    "paypal.com",
+    "github.com",
+    "dropbox.com",
+    "slack.com",
+    "zoom.us"
+  ],
+  "important_keywords": [
+    "apple", "google", "somfy", "aqara", "绿米", "lumi",
+    "发票", "invoice", "fapiao", "收据",
+    "合同", "付款", "报价", "订单",
+    "价格更新", "价格维护",
+    "知识库", "上市", "新品",
+    "安全提醒", "网络诈骗", "验证码"
+  ],
+  "spam_keywords": [
+    "优惠", "促销", "中奖", "免费领取", "限时折扣",
+    "恭喜您", "抽奖", "特价", "清仓", "秒杀",
+    "点击领取", "万元大奖", "独家优惠"
+  ],
+  "invoice_keywords": [
+    "发票", "invoice", "fapiao", "收据", "receipt",
+    "账单", "billing", "payment received"
+  ]
+}

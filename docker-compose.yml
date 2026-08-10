@@ -1,0 +1,11 @@
+services:
+  email-observer:
+    build: .
+    container_name: email-observer
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai
+    env_file:
+      - .env.docker
+    volumes:
+      - ./data:/app/data
