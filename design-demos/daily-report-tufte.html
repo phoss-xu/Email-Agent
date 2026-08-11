@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>邮件日报 · Tufte</title>
+<!--
+  方向 C：🧠 最佳设计师 → Edward Tufte（数据墨水比 data-ink ratio、去 chartjunk、高信息密度、排版即权威）
+  视觉母题：日报 = 一页打印出来的纸质报告。刊头 → 概览行 → 分栏表格，像一份财务摘要。
+  反 slop：零卡片零圆角零阴影零渐变；唯一的"彩色"是分类文字标注与细分隔线；衬线刊头（出版物气质）
+-->
+<style>
+  :root {
+    --paper: #FBFAF8;
+    --ink: #1A1A18;
+    --ink-2: #4A4A45;
+    --ink-3: #8A8A82;
+    --rule: #D8D6CE;
+    --rule-strong: #1A1A18;
+    --red: #9E2B25;
+    --orange: #A35E17;
+    --blue: #1F4E8C;
+    --gray: #6E6E68;
+    --serif: Georgia, "Songti SC", "STSong", "SimSun", serif;
+    --sans: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 28px 22px 36px;
+    font-size: 14px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── 刊头（出版物式） ── */
+  .masthead {
+    border-bottom: 2px solid var(--rule-strong);
+    padding-bottom: 10px;
+  }
+  .masthead .title {
+    font-family: var(--serif);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .masthead .meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--ink-3);
+    margin-top: 3px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── 概览行（一句话结论，Tufte 式 action-title） ── */
+  .summary {
+    padding: 12px 0 12px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  .summary .total {
+    font-family: var(--serif);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .summary .items {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  .summary .items .k { color: var(--ink-2); }
+
+  /* ── 分栏表格 ── */
+  .table { margin-top: 4px; }
+  .table-head {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0 4px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--rule);
+  }
+  .table-head .c-subject { flex: 1; }
+  .table-head .c-from { width: 128px; }
+  .table-head .c-tag { width: 44px; text-align: right; }
+  .trow {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  .trow .c-subject {
+    flex: 1;
+    min-width: 0;
+    font-size: 13.5px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .trow .c-from {
+    width: 128px;
+    font-size: 12px;
+    color: var(--ink-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .trow .c-tag {
+    width: 44px;
+    text-align: right;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .tag-imp { color: var(--red); }
+  .tag-inv { color: var(--orange); }
+  .tag-nor { color: var(--blue); }
+  .tag-spm { color: var(--gray); }
+
+  /* 分组小标题（带计数，行内标注） */
+  .group {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 18px;
+    padding: 8px 0 4px;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .group .gname {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .group .gname .mark { font-weight: 700; }
+  .group .gcount {
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .group .gcount b { color: var(--ink-2); font-weight: 600; }
+
+  /* 垃圾组弱化 */
+  .group.spam-g .gname { color: var(--gray); }
+  .trow.spam-row .c-subject { color: var(--ink-3); }
+  .trow.spam-row .c-from { color: #A9A9A0; }
+
+  /* ── 脚注（来源脚注式，Tufte 传统） ── */
+  .footnote {
+    margin-top: 22px;
+    padding-top: 10px;
+    border-top: 1px solid var(--rule);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .footnote .link {
+    color: var(--blue);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .footnote .link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- 刊头 -->
+<div class="masthead">
+  <div class="title">邮件日报</div>
+  <div class="meta">
+    <span>2026年8月11日 周二</span>
+    <span>09:00</span>
+  </div>
+</div>
+
+<!-- 概览：一句话结论 -->
+<div class="summary">
+  <span>今日共收到 </span><span class="total">8</span><span> 封邮件</span>
+  <div class="items">
+    <span class="k">重要</span> 2 · <span class="k">发票</span> 1 · <span class="k">普通</span> 3 · <span class="k">垃圾</span> 2
+  </div>
+</div>
+
+<!-- 重要邮件 -->
+<div class="group">
+  <span class="gname"><span class="mark" style="color:var(--red);">■</span> 重要邮件</span>
+  <span class="gcount">共 <b>2</b> 封</span>
+</div>
+<div class="table">
+  <div class="table-head">
+    <span class="c-subject">主题</span>
+    <span class="c-from">发件人</span>
+    <span class="c-tag">类</span>
+  </div>
+  <div class="trow">
+    <span class="c-subject">【紧急】服务器磁盘使用率超过 85%，请尽快扩容</span>
+    <span class="c-from">运维告警</span>
+    <span class="c-tag tag-imp">紧急</span>
+  </div>
+  <div class="trow">
+    <span class="c-subject">月度经营分析会议通知（8月12日 10:00 大会议室）</span>
+    <span class="c-from">王小明</span>
+    <span class="c-tag tag-imp">紧急</span>
+  </div>
+</div>
+
+<!-- 发票邮件 -->
+<div class="group">
+  <span class="gname"><span class="mark" style="color:var(--orange);">■</span> 发票邮件</span>
+  <span class="gcount">共 <b>1</b> 封</span>
+</div>
+<div class="table">
+  <div class="trow">
+    <span class="c-subject">增值税专用发票 · 2026年7月云服务费</span>
+    <span class="c-from">阿里云财务</span>
+    <span class="c-tag tag-inv">发票</span>
+  </div>
+</div>
+
+<!-- 普通邮件 -->
+<div class="group">
+  <span class="gname"><span class="mark" style="color:var(--blue);">■</span> 普通邮件</span>
+  <span class="gcount">共 <b>3</b> 封</span>
+</div>
+<div class="table">
+  <div class="trow">
+    <span class="c-subject">GitLab 每周代码评审提醒</span>
+    <span class="c-from">张工</span>
+    <span class="c-tag tag-nor">普通</span>
+  </div>
+  <div class="trow">
+    <span class="c-subject">团队周报模板更新通知</span>
+    <span class="c-from">产品部</span>
+    <span class="c-tag tag-nor">普通</span>
+  </div>
+  <div class="trow">
+    <span class="c-subject">茶水间零食补货清单</span>
+    <span class="c-from">行政小李</span>
+    <span class="c-tag tag-nor">普通</span>
+  </div>
+</div>
+
+<!-- 垃圾邮件 -->
+<div class="group spam-g">
+  <span class="gname"><span class="mark" style="color:var(--gray);">■</span> 已拦截垃圾</span>
+  <span class="gcount">共 <b>2</b> 封</span>
+</div>
+<div class="table">
+  <div class="trow spam-row">
+    <span class="c-subject">您已中奖!!!</span>
+    <span class="c-from">noreply@spam.com</span>
+    <span class="c-tag tag-spm">垃圾</span>
+  </div>
+  <div class="trow spam-row">
+    <span class="c-subject">限时折扣</span>
+    <span class="c-from">ads@spam.com</span>
+    <span class="c-tag tag-spm">垃圾</span>
+  </div>
+</div>
+
+<!-- 脚注 -->
+<div class="footnote">
+  <span>已拦截 2 封垃圾邮件 · 自动生成</span>
+  <a class="link" href="#">查看完整日报 →</a>
+</div>
+
+</body>
+</html>

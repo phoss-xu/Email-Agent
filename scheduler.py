@@ -59,10 +59,10 @@ class EmailScheduler:
         """执行日报任务"""
         print(f"\n[{datetime.now()}] 执行日报任务...")
         
-        emails = self.client.fetch_today_emails()
+        emails = self.client.fetch_recent_emails()
         
         if not emails:
-            print("今天没有新邮件")
+            print("过去 24 小时没有新邮件")
             return
         
         analysis_result = self.analyzer.analyze_emails(emails)
@@ -75,7 +75,7 @@ class EmailScheduler:
         print(f"[{datetime.now()}] 检查新邮件...")
         
         try:
-            emails = self.client.fetch_today_emails()
+            emails = self.client.fetch_recent_emails()
             analysis_result = self.analyzer.analyze_emails(emails)
             important_emails = analysis_result['important']
             invoice_emails = analysis_result['invoice']

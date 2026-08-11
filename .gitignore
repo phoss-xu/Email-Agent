@@ -13,6 +13,7 @@ venv/
 
 # 缓存文件
 notified_cache.json
+data/reports/
 
 # IDE
 .idea/

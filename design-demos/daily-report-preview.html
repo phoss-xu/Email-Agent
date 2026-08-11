@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>钉钉日报模板对比</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f0f2f5;
+    padding: 40px 20px;
+    color: #333;
+  }
+  .page-title {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 8px;
+  }
+  .page-subtitle {
+    text-align: center;
+    font-size: 14px;
+    color: #999;
+    margin-bottom: 40px;
+  }
+  .comparison {
+    display: flex;
+    gap: 32px;
+    max-width: 900px;
+    margin: 0 auto;
+    align-items: flex-start;
+  }
+  .column {
+    flex: 1;
+    min-width: 0;
+  }
+  .column-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+  .column-label.before {
+    background: #fff1f0;
+    color: #cf1322;
+  }
+  .column-label.after {
+    background: #f0f5ff;
+    color: #1d39c4;
+  }
+  .phone-frame {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  .phone-header {
+    background: #ededed;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #ddd;
+  }
+  .phone-header .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    background: #4a90d9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .phone-header .bot-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: #333;
+  }
+  .phone-body {
+    padding: 16px;
+    min-height: 560px;
+  }
+
+  /* ===== 消息气泡（模拟钉钉 Markdown 渲染） ===== */
+  .msg-bubble {
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.65;
+    max-width: 100%;
+  }
+  .md-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 10px;
+  }
+  .md-h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111;
+    margin-top: 14px;
+    margin-bottom: 6px;
+  }
+  .md-quote {
+    background: #f4f4f4;
+    border-radius: 4px;
+    padding: 4px 10px;
+    margin: 4px 0;
+    color: #444;
+    font-size: 13px;
+    word-break: break-all;
+  }
+  .md-strong {
+    font-weight: 700;
+    color: #111;
+  }
+  .md-italic {
+    font-style: italic;
+    color: #666;
+  }
+  .md-dim {
+    color: #888;
+    font-size: 12.5px;
+  }
+  .md-gap { height: 8px; }
+
+  /* 旧版问题高亮（注释式标注，模拟时一眼看出差异） */
+  .old-bubble .issue-mark {
+    font-size: 11px;
+    color: #cf1322;
+    background: #fff1f0;
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: 1px;
+  }
+
+  /* ===== 底部说明 ===== */
+  .notes {
+    max-width: 900px;
+    margin: 40px auto 0;
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px 28px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+  .notes h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #1a1a1a;
+  }
+  .notes ul {
+    list-style: none;
+    padding: 0;
+  }
+  .notes li {
+    padding: 6px 0;
+    font-size: 14px;
+    color: #555;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .notes li::before {
+    content: "→";
+    color: #1677ff;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .badge {
+    display: inline-block;
+    background: #f0f5ff;
+    color: #1677ff;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .badge.red {
+    background: #fff1f0;
+    color: #cf1322;
+  }
+
+  @media (max-width: 768px) {
+    .comparison { flex-direction: column; align-items: center; }
+    .column { width: 100%; max-width: 400px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">钉钉邮件日报模板 · 改造对比</div>
+<div class="page-subtitle">左侧为改造前 / 右侧为改造后（均按钉钉真实渲染效果模拟）</div>
+
+<div class="comparison">
+
+  <!-- ===== 改造前 ===== -->
+  <div class="column">
+    <div class="column-label before">改造前</div>
+    <div class="phone-frame">
+      <div class="phone-header">
+        <div class="avatar">邮</div>
+        <div class="bot-name">邮件监控助手</div>
+      </div>
+      <div class="phone-body">
+        <div class="msg-bubble old-bubble">
+          <div class="md-title">📊 邮件日报</div>
+
+          <div class="md-quote">📅 <b>2026年08月11日</b> 周二 · 09:00<span class="issue-mark">灰块①</span></div>
+
+          <div class="md-h4">📬 今日概览</div>
+          <div class="md-quote">共收到 <b>9</b> 封邮件<span class="issue-mark">灰块②</span></div>
+          <div class="md-quote">🔴 重要 <b>3</b> ｜ 🟠 发票 <b>1</b> ｜ 🟢 普通 <b>3</b> ｜ ⚫ 垃圾 <b>2</b><span class="issue-mark">窄屏易断行</span></div>
+
+          <div class="md-h4">🔴 重要邮件（3）</div>
+          <div class="md-gap"></div>
+          <div><b>1.</b> <span class="md-italic">【紧急】服务器磁盘使用率超过 85%，请尽快扩容</span><span class="issue-mark">主题用斜体</span></div>
+          <div class="md-quote">来自 <b>运维告警</b> ｜ 原因：主题命中【紧急】<span class="issue-mark">灰块③</span></div>
+          <div class="md-gap"></div>
+          <div><b>2.</b> <span class="md-italic">月度经营分析会议通知（8月12日 10:00 大会议室）</span></div>
+          <div class="md-quote">来自 <b>王小明</b> ｜ 原因：发件人在重要联系人白名单<span class="issue-mark">灰块④</span></div>
+          <div class="md-gap"></div>
+          <div><b>3.</b> <span class="md-italic">合同到期续签确认</span><span class="issue-mark">结构断裂：无详情</span></div>
+          <div class="md-gap"></div>
+          <div><b>4.</b> <span class="md-italic">客户投诉处理进展</span></div>
+          <div class="md-gap"></div>
+          <div><b>5.</b> <span class="md-italic">季度采购合同归档</span></div>
+          <div class="md-gap"></div>
+          <div><span class="md-italic">…还有 5 封未展示</span></div>
+          <div class="md-gap"></div>
+
+          <div class="md-h4">🟠 发票邮件（1）</div>
+          <div class="md-gap"></div>
+          <div><b>1.</b> <span class="md-italic">增值税专用发票 · 2026年7月云服务费</span></div>
+          <div class="md-quote">来自 <b>阿里云财务</b><span class="issue-mark">灰块⑤</span></div>
+          <div class="md-gap"></div>
+
+          <div class="md-h4">🟢 普通邮件（3）</div>
+          <div>- <b>GitLab 每周代码评审提醒</b> · <span class="md-italic">张工</span></div>
+          <div>- <b>团队周报模板更新通知</b> · <span class="md-italic">产品部</span></div>
+          <div>- <b>茶水间零食补货清单</b> · <span class="md-italic">行政小李</span></div>
+          <div class="md-gap"></div>
+
+          <div class="md-h4">⚫ 已拦截垃圾（2）</div>
+          <div class="md-quote">中奖通知 / 优惠促销<span class="issue-mark">灰块⑥</span></div>
+          <div class="md-gap"></div>
+
+          <div class="md-dim"><span class="md-italic">📧 点击查看邮箱 · 自动推送 by Email Agent</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 改造后 ===== -->
+  <div class="column">
+    <div class="column-label after">改造后</div>
+    <div class="phone-frame">
+      <div class="phone-header">
+        <div class="avatar">邮</div>
+        <div class="bot-name">邮件监控助手</div>
+      </div>
+      <div class="phone-body">
+        <div class="msg-bubble">
+          <div class="md-title">📊 邮件日报</div>
+
+          <div class="md-h4">📬 <b>8月11日</b>（周二）· 今日概览</div>
+          <div class="md-quote">共收到 <b>9</b> 封邮件</div>
+          <div class="md-quote">🔴 重要 <b>3</b></div>
+          <div class="md-quote">🟠 发票 <b>1</b></div>
+          <div class="md-quote">🟢 普通 <b>3</b></div>
+          <div class="md-quote">⚫ 垃圾 <b>2</b></div>
+
+          <div class="md-h4">🔴 重要邮件（3）</div>
+          <div><b>1. 【紧急】服务器磁盘使用率超过 85%，请尽快扩容</b></div>
+          <div>来自 运维告警 · 原因：主题命中【紧急】</div>
+          <div><b>2. 月度经营分析会议通知（8月12日 10:00 大会…</b></div>
+          <div>来自 王小明 · 原因：发件人在重要联系人白名单</div>
+          <div><b>3. 合同到期续签确认 - 这是一封超长主题的邮件…</b></div>
+          <div>来自 李四 · 原因：关键词匹配</div>
+          <div>…还有 <b>5</b> 封未展示</div>
+
+          <div class="md-h4">🟠 发票邮件（1）</div>
+          <div><b>1. 增值税专用发票 · 2026年7月云服务费（含＊折…</b> · 来自 阿里云财务</div>
+
+          <div class="md-h4">🟢 普通邮件（3）</div>
+          <div>- <b>GitLab 每周代码评审提醒</b> · 张工</div>
+          <div>- <b>团队周报模板更新通知</b> · 产品部</div>
+          <div>- <b>茶水间零食补货清单</b> · 行政小李</div>
+
+          <div class="md-h4">⚫ 已拦截垃圾（2）</div>
+          <div class="md-quote">中奖通知 · 优惠促销</div>
+
+          <div class="md-gap"></div>
+          <div><b>📧 <span style="color:#1677ff;">点击查看邮箱</span> · 自动推送 by Email Agent</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 说明 -->
+<div class="notes">
+  <h3>改造要点</h3>
+  <ul>
+    <li>灰块从 6 个收敛到 2 个（仅概览统计 + 垃圾列表），告别"灰块叠叠乐"</li>
+    <li>主题从斜体改为粗体，发件人降为普通文本，层级变为"标题 &gt; 主题 &gt; 详情"</li>
+    <li>重要邮件统一"粗体主题 + 一行详情"结构，不再出现"前 2 封有详情、其余没有"的断裂</li>
+    <li>条目间去掉空行、区块间保留空行，列表成组、节奏紧凑</li>
+    <li>日期并入概览标题，不再单独占一个灰块</li>
+    <li>统计改为每类一行，窄屏不再断行；0 封时只显示空态，不再重复"今日概览"</li>
+    <li>主题超长自动截断（25 字）+ 特殊字符 <span class="badge">*</span> 转义，防止格式错乱</li>
+    <li>底部 CTA 改粗体；垃圾发件人分隔符 <span class="badge">/</span> 换 <span class="badge">·</span></li>
+  </ul>
+</div>
+
+</body>
+</html>

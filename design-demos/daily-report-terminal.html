@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>邮件日报 · Terminal</title>
+<!--
+  方向 A：🎲 秒数轮盘 → 风格库 #16「终端核软未来 Terminal-Core Soft-Futurism」
+  视觉母题：邮箱 = 一台终端的日志输出。日报就是 "inbox --report" 命令的 stdout。
+  布局：终端命令行头部 → bento 统计块 → 日志级别式列表（[IMP]/[INV]/[NOR]/[SPM]）
+  反 slop：无渐变满版（蓝紫 accent 仅用于链接小面积）、无圆角卡片+左色条、无 emoji 图标
+-->
+<style>
+  :root {
+    --bg: #0B0D14;
+    --bg-raised: #12151F;
+    --bg-hover: #171B27;
+    --text: #F2F0EF;
+    --text-dim: #9BA1AC;
+    --text-faint: #5C6370;
+    --line: #232836;
+    --accent: #8B7CF6;
+    --red: #E8837C;
+    --orange: #D9A066;
+    --blue: #7CA8E8;
+    --gray: #6B7280;
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 20px 18px 28px;
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── 终端头部 ── */
+  .term-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: 6px 6px 0 0;
+  }
+  .term-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .term-dot.r { background: #E86B5E; }
+  .term-dot.y { background: #E8B84B; }
+  .term-dot.g { background: #5FCB77; }
+  .term-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-left: 6px;
+  }
+  .cmd-window {
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    padding: 14px 14px 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .cmd-line { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cmd-line .prompt { color: var(--accent); }
+  .cmd-line .flag { color: var(--text-dim); }
+  .cmd-line .arg { color: #9ED1A8; }
+  .cmd-out { color: var(--text-faint); font-size: 12px; margin-top: 6px; }
+  .cursor {
+    display: inline-block;
+    width: 8px; height: 15px;
+    background: var(--accent);
+    vertical-align: -2px;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ── 统计 bento ── */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin-top: 16px;
+    overflow: hidden;
+  }
+  .stat {
+    background: var(--bg);
+    padding: 12px 14px 10px;
+  }
+  .stat .num {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .lbl {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    margin-top: 2px;
+    text-transform: uppercase;
+  }
+  .num.total { color: var(--text); }
+  .num.imp { color: var(--red); }
+  .num.inv { color: var(--orange); }
+  .num.spm { color: var(--gray); }
+
+  /* ── 分区 ── */
+  .section { margin-top: 22px; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+  }
+  .section-head .tag {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .tag.imp { color: var(--red); background: rgba(232,131,124,0.12); }
+  .tag.inv { color: var(--orange); background: rgba(217,160,102,0.12); }
+  .tag.nor { color: var(--blue); background: rgba(124,168,232,0.12); }
+  .tag.spm { color: var(--gray); background: rgba(107,114,128,0.14); }
+  .section-head .count { color: var(--text-faint); font-size: 12px; }
+
+  /* ── 邮件条目（终端日志行） ── */
+  .mail-list { font-family: var(--mono); font-size: 13px; }
+  .mail {
+    padding: 9px 4px;
+    border-bottom: 1px solid rgba(35,40,54,0.55);
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+  }
+  .mail:last-child { border-bottom: none; }
+  .mail .lv {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    width: 34px;
+    letter-spacing: 0.04em;
+  }
+  .lv.imp { color: var(--red); }
+  .lv.inv { color: var(--orange); }
+  .lv.nor { color: var(--blue); }
+  .lv.spm { color: var(--gray); }
+  .mail .body { min-width: 0; }
+  .mail .subject {
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mail .from {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mail .badge {
+    flex-shrink: 0;
+    margin-left: auto;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .badge.imp { color: var(--red); border: 1px solid rgba(232,131,124,0.5); }
+  .badge.inv { color: var(--orange); border: 1px solid rgba(217,160,102,0.5); }
+  .badge.nor { color: var(--blue); border: 1px solid rgba(124,168,232,0.5); }
+  .badge.spm { color: var(--gray); border: 1px solid rgba(107,114,128,0.5); }
+
+  /* 垃圾区整体弱化 */
+  .mail.spam-item { opacity: 0.6; }
+  .mail.spam-item .subject { color: var(--text-dim); }
+
+  /* ── 折叠提示 ── */
+  .collapse {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    padding: 6px 4px;
+  }
+
+  /* ── 底部 ── */
+  .footer {
+    margin-top: 24px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .footer .link {
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .footer .link:hover { text-decoration: underline; }
+  .prompt-line { margin-top: 14px; font-family: var(--mono); font-size: 13px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<!-- 终端窗口：标题即命令 -->
+<div class="term-bar">
+  <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+  <span class="term-title">email-agent — daily-report</span>
+</div>
+<div class="cmd-window">
+  <div class="cmd-line"><span class="prompt">❯</span> inbox <span class="flag">--report</span> <span class="arg">--date 2026-08-11</span></div>
+  <div class="cmd-out"># 邮件日报 · 周二 · 09:00 · 8 封新邮件</div>
+</div>
+
+<!-- 统计 bento -->
+<div class="stats">
+  <div class="stat">
+    <div class="num total">8</div>
+    <div class="lbl">Total</div>
+  </div>
+  <div class="stat">
+    <div class="num imp">2</div>
+    <div class="lbl">Important</div>
+  </div>
+  <div class="stat">
+    <div class="num inv">1</div>
+    <div class="lbl">Invoice</div>
+  </div>
+  <div class="stat">
+    <div class="num spm">2</div>
+    <div class="lbl">Spam</div>
+  </div>
+</div>
+
+<!-- 重要邮件 -->
+<div class="section">
+  <div class="section-head">
+    <span class="tag imp">IMP</span>
+    <span>重要邮件</span>
+    <span class="count">2</span>
+  </div>
+  <div class="mail-list">
+    <div class="mail">
+      <span class="lv imp">IMP</span>
+      <div class="body">
+        <div class="subject">【紧急】服务器磁盘使用率超过 85%，请尽快扩容</div>
+        <div class="from">运维告警 &lt;ops@corp.com&gt;</div>
+      </div>
+      <span class="badge imp">紧急</span>
+    </div>
+    <div class="mail">
+      <span class="lv imp">IMP</span>
+      <div class="body">
+        <div class="subject">月度经营分析会议通知（8月12日 10:00 大会议室）</div>
+        <div class="from">王小明 &lt;wangxm@corp.com&gt;</div>
+      </div>
+      <span class="badge imp">紧急</span>
+    </div>
+  </div>
+</div>
+
+<!-- 发票邮件 -->
+<div class="section">
+  <div class="section-head">
+    <span class="tag inv">INV</span>
+    <span>发票邮件</span>
+    <span class="count">1</span>
+  </div>
+  <div class="mail-list">
+    <div class="mail">
+      <span class="lv inv">INV</span>
+      <div class="body">
+        <div class="subject">增值税专用发票 · 2026年7月云服务费</div>
+        <div class="from">阿里云财务 &lt;pay@aliyun.com&gt;</div>
+      </div>
+      <span class="badge inv">发票</span>
+    </div>
+  </div>
+</div>
+
+<!-- 普通邮件 -->
+<div class="section">
+  <div class="section-head">
+    <span class="tag nor">NOR</span>
+    <span>普通邮件</span>
+    <span class="count">3</span>
+  </div>
+  <div class="mail-list">
+    <div class="mail">
+      <span class="lv nor">NOR</span>
+      <div class="body">
+        <div class="subject">GitLab 每周代码评审提醒</div>
+        <div class="from">张工 &lt;zhangg@corp.com&gt;</div>
+      </div>
+    </div>
+    <div class="mail">
+      <span class="lv nor">NOR</span>
+      <div class="body">
+        <div class="subject">团队周报模板更新通知</div>
+        <div class="from">产品部 &lt;pm@corp.com&gt;</div>
+      </div>
+    </div>
+    <div class="mail">
+      <span class="lv nor">NOR</span>
+      <div class="body">
+        <div class="subject">茶水间零食补货清单</div>
+        <div class="from">行政小李 &lt;xz@corp.com&gt;</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 垃圾邮件（弱化） -->
+<div class="section">
+  <div class="section-head">
+    <span class="tag spm">SPM</span>
+    <span>已拦截垃圾</span>
+    <span class="count">2</span>
+  </div>
+  <div class="mail-list">
+    <div class="mail spam-item">
+      <span class="lv spm">SPM</span>
+      <div class="body">
+        <div class="subject">您已中奖!!!</div>
+        <div class="from">noreply@spam.com</div>
+      </div>
+    </div>
+    <div class="mail spam-item">
+      <span class="lv spm">SPM</span>
+      <div class="body">
+        <div class="subject">限时折扣</div>
+        <div class="from">ads@spam.com</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部 -->
+<div class="footer">
+  <span>已拦截 <b style="color:var(--text-dim);font-weight:600;">2</b> 封垃圾邮件</span>
+  <a class="link" href="#">查看完整日报 →</a>
+</div>
+<div class="prompt-line"><span class="prompt" style="color:var(--accent);">❯</span> <span class="cursor"></span></div>
+
+</body>
+</html>

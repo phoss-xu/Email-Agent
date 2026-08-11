@@ -1,8 +1,10 @@
 """邮件客户端模块 - IMAP 连接与邮件读取"""
 import imaplib
-import email
+import email.message
+from email import message_from_bytes
 from email.header import decode_header
-from datetime import datetime, date
+from email.utils import parsedate_to_datetime
+from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 import re
@@ -131,51 +133,73 @@ class EmailClient:
         
         return body[:2000]  # 限制正文长度
     
-    def fetch_today_emails(self) -> List[EmailMessage]:
-        """获取今天的邮件"""
-        today = date.today()
-        return self.fetch_emails_since(today)
+    def fetch_recent_emails(self, hours: int = 24) -> List[EmailMessage]:
+        """获取过去 N 小时收到的邮件（含断线重连）
     
-    def fetch_emails_since(self, since_date: date) -> List[EmailMessage]:
-        """获取指定日期以来的邮件（含断线重连）"""
+        策略：IMAP SINCE 按天粗筛（取昨天，覆盖 24h 窗口起点之前的邮件），
+        再用服务器接收时间 INTERNALDATE 精确过滤，避免邮件头 Date 不可靠的问题。
+        """
         if not self._ensure_connected():
             return []
-        
+    
+        since_date = date.today() - timedelta(days=1)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    
         try:
-            return self._do_fetch(since_date)
+            return self._do_fetch(since_date, min_received_time=cutoff)
         except Exception as e:
             print(f"获取邮件失败: {e}，尝试重连...")
             self.disconnect()
             self.connection = None
             if self._ensure_connected():
                 try:
-                    return self._do_fetch(since_date)
+                    return self._do_fetch(since_date, min_received_time=cutoff)
                 except Exception as e2:
                     print(f"重试仍失败: {e2}")
             return []
     
-    def _do_fetch(self, since_date: date) -> List[EmailMessage]:
-        """实际执行邮件拉取"""
+    @staticmethod
+    def _extract_internaldate(msg_data) -> Optional[datetime]:
+        """从 IMAP fetch 响应解析服务器接收时间（INTERNALDATE），解析失败返回 None"""
+        for item in msg_data:
+            if isinstance(item, tuple) and item[0]:
+                m = re.search(rb'INTERNALDATE "([^"]+)"', item[0])
+                if m:
+                    try:
+                        return parsedate_to_datetime(m.group(1).decode())
+                    except:
+                        return None
+        return None
+    
+    def _do_fetch(self, since_date: date, min_received_time: Optional[datetime] = None) -> List[EmailMessage]:
+        """实际执行邮件拉取；min_received_time 非空时按服务器接收时间过滤（UTC aware）"""
         self.connection.select('INBOX')
-        
+    
         # 搜索指定日期后的邮件
         date_str = since_date.strftime('%d-%b-%Y')
         status, messages = self.connection.search(None, f'(SINCE {date_str})')
-        
+    
         if status != 'OK':
             return []
-        
+    
         email_list = []
         msg_ids = messages[0].split()
-        
+    
         for msg_id in msg_ids:
             try:
-                status, msg_data = self.connection.fetch(msg_id, '(RFC822)')
+                # 带 INTERNALDATE：获取服务器接收时间，用于 24h 精确过滤
+                status, msg_data = self.connection.fetch(msg_id, '(RFC822 INTERNALDATE)')
                 if status != 'OK':
                     continue
+    
+                # 24h 过滤：INTERNALDATE 解析失败时保留（宽松处理，宁可多显示）
+                if min_received_time is not None:
+                    received = self._extract_internaldate(msg_data)
+                    if received is not None and received.astimezone(timezone.utc) < min_received_time:
+                        continue
                 
                 raw_email = msg_data[0][1]
-                msg = email.message_from_bytes(raw_email)
+                msg = message_from_bytes(raw_email)
                 
                 # 解析邮件头
                 subject = self._decode_header(msg.get('Subject', ''))
@@ -186,7 +210,7 @@ class EmailClient:
                 # 解析日期
                 date_str = msg.get('Date', '')
                 try:
-                    email_date = email.utils.parsedate_to_datetime(date_str)
+                    email_date = parsedate_to_datetime(date_str)
                 except:
                     email_date = datetime.now()
                 

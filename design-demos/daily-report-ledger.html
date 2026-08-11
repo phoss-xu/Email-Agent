@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>邮件日报 · Ledger</title>
+<!--
+  方向 B：🏆 现实参照 → Stripe（Fintech 工具类设计标杆：克制无衬线、精密网格、靛蓝 accent、大数字、hairline 分割）
+  视觉母题：邮件 = 一张"收件流水账本"。每封邮件是一行账目（发件人 / 主题 / 标签），
+           顶部是今天的关键数字，像 Stripe 的 dashboard 指标卡。
+  反 slop：不用圆角卡片+左色条（改用 hairline 分割的流水行）、无渐变、无 emoji 图标
+-->
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --bg-soft: #F6F8FA;
+    --ink: #0A0A0A;
+    --ink-2: #555C66;
+    --ink-3: #9AA2AE;
+    --line: #E7EAEE;
+    --accent: #635BFF;
+    --red: #C8322B;
+    --orange: #C76B1E;
+    --blue: #2E6FD8;
+    --gray: #8A919C;
+    --sans: -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+    --num: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 0 32px;
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── 顶部标题带 ── */
+  .masthead {
+    padding: 24px 20px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .masthead .kicker {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .masthead h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-top: 4px;
+  }
+  .masthead .date {
+    font-size: 13px;
+    color: var(--ink-3);
+    margin-top: 2px;
+  }
+
+  /* ── 指标区（大数字） ── */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--line);
+  }
+  .metric {
+    padding: 16px 8px 14px;
+    text-align: center;
+  }
+  .metric + .metric { border-left: 1px solid var(--line); }
+  .metric .num {
+    font-family: var(--num);
+    font-size: 26px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+  .metric .lbl {
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-top: 2px;
+    letter-spacing: 0.03em;
+  }
+  .num-total { color: var(--ink); }
+  .num-imp { color: var(--red); }
+  .num-inv { color: var(--orange); }
+  .num-spm { color: var(--gray); }
+
+  /* ── 流水列表 ── */
+  .ledger { padding: 0 0 4px; }
+  .ledger-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 16px 20px 8px;
+  }
+  .ledger-head .name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ledger-head .name .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    display: inline-block;
+  }
+  .dot.imp { background: var(--red); }
+  .dot.inv { background: var(--orange); }
+  .dot.nor { background: var(--blue); }
+  .dot.spm { background: var(--gray); }
+  .ledger-head .cnt {
+    font-family: var(--num);
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 20px;
+    border-top: 1px solid var(--line);
+  }
+  .row .cat {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cat.imp { background: var(--red); }
+  .cat.inv { background: var(--orange); }
+  .cat.nor { background: var(--blue); }
+  .cat.spm { background: var(--gray); }
+  .row .info { min-width: 0; flex: 1; }
+  .row .subject {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .row .from {
+    font-size: 12.5px;
+    color: var(--ink-2);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .row .pill {
+    flex-shrink: 0;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .pill.imp { color: var(--red); background: #FBEDEC; }
+  .pill.inv { color: var(--orange); background: #FBF1E6; }
+  .pill.nor { color: var(--blue); background: #EBF1FB; }
+  .pill.spm { color: var(--gray); background: #F1F3F5; }
+
+  /* 垃圾行弱化 */
+  .row.spam-row { opacity: 0.55; }
+  .row.spam-row .subject { color: var(--ink-2); }
+
+  /* ── 底部 ── */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-top: 1px solid var(--line);
+    margin-top: 8px;
+  }
+  .footer .note {
+    font-size: 12.5px;
+    color: var(--ink-3);
+  }
+  .footer .note b { color: var(--ink-2); font-weight: 600; }
+  .footer .link {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .footer .link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- 顶部标题带 -->
+<div class="masthead">
+  <div class="kicker">Email Daily Report</div>
+  <h1>邮件日报</h1>
+  <div class="date">2026年8月11日 周二 · 09:00</div>
+</div>
+
+<!-- 指标区 -->
+<div class="metrics">
+  <div class="metric">
+    <div class="num num-total">8</div>
+    <div class="lbl">总邮件</div>
+  </div>
+  <div class="metric">
+    <div class="num num-imp">2</div>
+    <div class="lbl">重要</div>
+  </div>
+  <div class="metric">
+    <div class="num num-inv">1</div>
+    <div class="lbl">发票</div>
+  </div>
+  <div class="metric">
+    <div class="num num-spm">2</div>
+    <div class="lbl">垃圾</div>
+  </div>
+</div>
+
+<!-- 重要邮件 -->
+<div class="ledger">
+  <div class="ledger-head">
+    <span class="name"><span class="dot imp"></span>重要邮件</span>
+    <span class="cnt">2</span>
+  </div>
+  <div class="row">
+    <span class="cat imp"></span>
+    <div class="info">
+      <div class="subject">【紧急】服务器磁盘使用率超过 85%，请尽快扩容</div>
+      <div class="from">运维告警 · ops@corp.com</div>
+    </div>
+    <span class="pill imp">紧急</span>
+  </div>
+  <div class="row">
+    <span class="cat imp"></span>
+    <div class="info">
+      <div class="subject">月度经营分析会议通知（8月12日 10:00 大会议室）</div>
+      <div class="from">王小明 · wangxm@corp.com</div>
+    </div>
+    <span class="pill imp">紧急</span>
+  </div>
+</div>
+
+<!-- 发票邮件 -->
+<div class="ledger">
+  <div class="ledger-head">
+    <span class="name"><span class="dot inv"></span>发票邮件</span>
+    <span class="cnt">1</span>
+  </div>
+  <div class="row">
+    <span class="cat inv"></span>
+    <div class="info">
+      <div class="subject">增值税专用发票 · 2026年7月云服务费</div>
+      <div class="from">阿里云财务 · pay@aliyun.com</div>
+    </div>
+    <span class="pill inv">发票</span>
+  </div>
+</div>
+
+<!-- 普通邮件 -->
+<div class="ledger">
+  <div class="ledger-head">
+    <span class="name"><span class="dot nor"></span>普通邮件</span>
+    <span class="cnt">3</span>
+  </div>
+  <div class="row">
+    <span class="cat nor"></span>
+    <div class="info">
+      <div class="subject">GitLab 每周代码评审提醒</div>
+      <div class="from">张工 · zhangg@corp.com</div>
+    </div>
+  </div>
+  <div class="row">
+    <span class="cat nor"></span>
+    <div class="info">
+      <div class="subject">团队周报模板更新通知</div>
+      <div class="from">产品部 · pm@corp.com</div>
+    </div>
+  </div>
+  <div class="row">
+    <span class="cat nor"></span>
+    <div class="info">
+      <div class="subject">茶水间零食补货清单</div>
+      <div class="from">行政小李 · xz@corp.com</div>
+    </div>
+  </div>
+</div>
+
+<!-- 垃圾邮件 -->
+<div class="ledger">
+  <div class="ledger-head">
+    <span class="name"><span class="dot spm"></span>已拦截垃圾</span>
+    <span class="cnt">2</span>
+  </div>
+  <div class="row spam-row">
+    <span class="cat spm"></span>
+    <div class="info">
+      <div class="subject">您已中奖!!!</div>
+      <div class="from">noreply@spam.com</div>
+    </div>
+  </div>
+  <div class="row spam-row">
+    <span class="cat spm"></span>
+    <div class="info">
+      <div class="subject">限时折扣</div>
+      <div class="from">ads@spam.com</div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部 -->
+<div class="footer">
+  <span class="note">已拦截 <b>2</b> 封垃圾邮件</span>
+  <a class="link" href="#">查看完整日报 →</a>
+</div>
+
+</body>
+</html>
