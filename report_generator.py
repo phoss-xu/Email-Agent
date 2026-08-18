@@ -13,18 +13,18 @@ class ReportGenerator:
     ALERT_TEMPLATE_PATH = Path(__file__).parent / 'templates' / 'alert.html'
     OUTPUT_DIR = Path(__file__).parent / 'data' / 'reports'
 
-    # 分类 → (标记色, 行标签样式, 标签文字, 锚点前缀)
+    # 分类 → (标记色, 行标签样式, 标签文字, 锚点前缀, 图标)
     SECTION_STYLES = {
-        'important': ('var(--red)', 'tag-imp', '重要', 'imp'),
-        'invoice': ('var(--orange)', 'tag-inv', '发票', 'inv'),
-        'spam': ('var(--gray)', 'tag-spm', '垃圾', 'spm'),
+        'important': ('var(--red)', 'tag-imp', '重要', 'imp', '⭐'),
+        'invoice': ('var(--orange)', 'tag-inv', '发票', 'inv', '🧾'),
+        'spam': ('var(--gray)', 'tag-spm', '垃圾', 'spm', '🗑️'),
     }
 
-    # 内部邮件子类型 → (子标题, 行标签样式, 标签文字, 锚点前缀)
+    # 内部邮件子类型 → (子标题, 行标签样式, 标签文字, 锚点前缀, 图标)
     INTERNAL_STYLES = {
-        'internal_meeting': ('会议记录', 'tag-mtg', '会议', 'int-m'),
-        'internal_hr': ('HR', 'tag-hr', 'HR', 'int-h'),
-        'internal_reply': ('需回复', 'tag-reply', '需回复', 'int-r'),
+        'internal_meeting': ('会议记录', 'tag-mtg', '会议', 'int-m', '📝'),
+        'internal_hr': ('HR', 'tag-hr', 'HR', 'int-h', '👤'),
+        'internal_reply': ('需回复', 'tag-reply', '需回复', 'int-r', '✉️'),
     }
 
     @staticmethod
@@ -47,14 +47,14 @@ class ReportGenerator:
         if not emails:
             return ''
 
-        mark_color, tag_cls, tag_text, anchor_prefix = self.SECTION_STYLES[style_key]
+        _, tag_cls, tag_text, anchor_prefix, icon = self.SECTION_STYLES[style_key]
         is_spam = style_key == 'spam'
         group_cls = 'group spam-g' if is_spam else 'group'
         row_cls = 'trow spam-row' if is_spam else 'trow'
 
         html_parts = []
         html_parts.append(f'<div class="{group_cls}">')
-        html_parts.append(f'  <span class="gname"><span class="mark" style="color:{mark_color};">■</span> {title}</span>')
+        html_parts.append(f'  <span class="gname"><span class="icon">{icon}</span>{title}</span>')
         html_parts.append(f'  <span class="gcount">共 <b>{len(emails)}</b> 封</span>')
         html_parts.append(f'</div>')
         html_parts.append(f'<div class="table">')
@@ -91,16 +91,16 @@ class ReportGenerator:
 
         html_parts = []
         html_parts.append(f'<div class="group">')
-        html_parts.append(f'  <span class="gname"><span class="mark" style="color:var(--blue);">■</span> 内部邮件</span>')
+        html_parts.append(f'  <span class="gname"><span class="icon">🏢</span>内部邮件</span>')
         html_parts.append(f'  <span class="gcount">共 <b>{total}</b> 封</span>')
         html_parts.append(f'</div>')
 
-        for key, (sub_title, tag_cls, tag_text, anchor_prefix) in self.INTERNAL_STYLES.items():
+        for key, (sub_title, tag_cls, tag_text, anchor_prefix, icon) in self.INTERNAL_STYLES.items():
             emails = emails_by_type[key]
             if not emails:
                 continue
             html_parts.append(f'<div class="subgroup">')
-            html_parts.append(f'  <span class="sname">{sub_title}</span>')
+            html_parts.append(f'  <span class="sname"><span class="icon">{icon}</span>{sub_title}</span>')
             html_parts.append(f'  <span class="scount">共 <b>{len(emails)}</b> 封</span>')
             html_parts.append(f'</div>')
             html_parts.append(f'<div class="table">')
@@ -132,14 +132,14 @@ class ReportGenerator:
                 for key, name in (('internal_meeting', '会议'), ('internal_hr', 'HR'), ('internal_reply', '需回复'))
                 if analysis_result.get(key)
             )
-            parts.append(f'<span class="k">内部</span> <b>{internal_total}</b>' + (f'（{sub}）' if sub else ''))
+            parts.append(f'<span class="k">🏢 内部</span> <b>{internal_total}</b>' + (f'（{sub}）' if sub else ''))
         if external_total:
             sub = ' · '.join(
                 f'{name} {len(analysis_result.get(key, []))}'
                 for key, name in (('important', '重要'), ('invoice', '发票'), ('spam', '垃圾'))
                 if analysis_result.get(key)
             )
-            parts.append(f'<span class="k">外部</span> <b>{external_total}</b>' + (f'（{sub}）' if sub else ''))
+            parts.append(f'<span class="k">🌐 外部</span> <b>{external_total}</b>' + (f'（{sub}）' if sub else ''))
         return ' ｜ '.join(parts)
 
     def _escape(self, text: str) -> str:

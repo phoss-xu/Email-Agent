@@ -37,6 +37,14 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /* 分类标记色（保留变量供标签使用） */
+  .icon {
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    font-size: 13px;
+    line-height: 1;
+    margin-right: 5px;
+  }
+
   /* ── 刊头（出版物式） ── */
   .masthead {
     border-bottom: 2px solid var(--rule-strong);
@@ -47,6 +55,10 @@
     font-size: 24px;
     font-weight: 700;
     letter-spacing: 0.02em;
+  }
+  .masthead .title .icon {
+    font-size: 19px;
+    margin-right: 7px;
   }
   .masthead .meta {
     display: flex;
@@ -142,7 +154,10 @@
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
   }
+  .group .gname .icon { font-size: 14px; }
   .group .gcount {
     font-size: 12px;
     color: var(--ink-3);
@@ -167,7 +182,10 @@
     font-size: 12.5px;
     font-weight: 700;
     letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
   }
+  .subgroup .sname .icon { font-size: 13px; }
   .subgroup .scount {
     font-size: 11.5px;
     color: var(--ink-3);
@@ -212,7 +230,7 @@
 
 <!-- 刊头 -->
 <div class="masthead">
-  <div class="title">{{TITLE}}</div>
+  <div class="title"><span class="icon">📧</span>{{TITLE}}</div>
   <div class="meta">
     <span>{{DATE}}</span>
     <span>{{TIME}}</span>
@@ -239,8 +257,8 @@
 
 <!-- 脚注 -->
 <div class="footnote">
-  <span>已拦截 {{SPAM_COUNT}} 封垃圾邮件 · 自动生成</span>
-  <a class="link" href="{{REPORT_URL}}">查看完整日报 →</a>
+  <span>🗑️ 已拦截 {{SPAM_COUNT}} 封垃圾邮件 · 自动生成</span>
+  <a class="link" href="{{REPORT_URL}}">🔗 查看完整日报 →</a>
 </div>
 
 </body>

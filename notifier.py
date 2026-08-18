@@ -106,25 +106,25 @@ class Notifier:
         lines.append(f"> {stats}")
         lines.append("")
 
-        # 外部重要邮件：主题链接到邮箱网页版（IMAP 邮件无公开直达 URL）
+        # 外部重要邮件：主题链接到日报 HTML 锚点定位（IMAP 邮件无公开直达 URL，锚点可快速定位该封邮件）
         if important_emails:
             lines.append("**外部重要邮件**")
             lines.append("")
             for i, e in enumerate(important_emails[:5], 1):
                 link_text = self._short_subject(e.subject).replace('[', '［').replace(']', '］')
-                lines.append(f"**{i}. [{link_text}](https://qiye.aliyun.com/alimail/)** · 来自 {self._short_sender(e.sender)}")
+                lines.append(f"**{i}. [{link_text}]({html_url}#imp-{i})** · 来自 {self._short_sender(e.sender)}")
                 lines.append("")
             if len(important_emails) > 5:
                 lines.append(f"…还有 **{len(important_emails) - 5}** 封未展示")
                 lines.append("")
 
-        # 发票邮件：同上
+        # 发票邮件：同上（锚点 inv-N）
         if invoice_emails:
             lines.append("**发票邮件**")
             lines.append("")
             for i, e in enumerate(invoice_emails[:3], 1):
                 link_text = self._short_subject(e.subject).replace('[', '［').replace(']', '］')
-                lines.append(f"**{i}. [{link_text}](https://qiye.aliyun.com/alimail/)** · 来自 {self._short_sender(e.sender)}")
+                lines.append(f"**{i}. [{link_text}]({html_url}#inv-{i})** · 来自 {self._short_sender(e.sender)}")
                 lines.append("")
             if len(invoice_emails) > 3:
                 lines.append(f"…还有 **{len(invoice_emails) - 3}** 封未展示")
@@ -168,7 +168,7 @@ class Notifier:
 
             # ── 内部邮件（每封：粗体主题 + 类型标注 + 摘要引用块）──
             if internal_emails:
-                lines.append(f"#### 内部邮件（**{len(internal_emails)}**）")
+                lines.append(f"#### 🏢 内部邮件（**{len(internal_emails)}**）")
                 lines.append("")
                 for i, e in enumerate(internal_emails[:5], 1):
                     type_name = self._internal_type_name(e.category)
@@ -187,7 +187,7 @@ class Notifier:
 
             # ── 外部重要邮件（每封两段：粗体主题 + 详情；段间空行防止钉钉合并成一行）──
             if important_emails:
-                lines.append(f"#### 外部重要邮件（**{len(important_emails)}**）")
+                lines.append(f"#### ⭐ 外部重要邮件（**{len(important_emails)}**）")
                 lines.append("")
                 for i, e in enumerate(important_emails[:5], 1):
                     lines.append(f"**{i}. {self._short_subject(e.subject)}**")
@@ -208,7 +208,7 @@ class Notifier:
 
             # ── 发票邮件（单行式：粗体主题 + 发件人）──
             if invoice_emails:
-                lines.append(f"#### 发票邮件（**{len(invoice_emails)}**）")
+                lines.append(f"#### 🧾 发票邮件（**{len(invoice_emails)}**）")
                 lines.append("")
                 for i, e in enumerate(invoice_emails[:3], 1):
                     lines.append(
@@ -221,7 +221,7 @@ class Notifier:
 
             # ── 垃圾邮件（单行引用块，弱化展示）──
             if spam_emails:
-                lines.append(f"#### 已拦截垃圾（**{len(spam_emails)}**）")
+                lines.append(f"#### 🗑️ 已拦截垃圾（**{len(spam_emails)}**）")
                 lines.append("")
                 spam_senders = [self._short_sender(e.sender) for e in spam_emails[:5]]
                 extra = f" · …等 **{len(spam_emails)}** 封" if len(spam_emails) > 5 else ""
@@ -245,7 +245,7 @@ class Notifier:
                 for key, name in (('internal_meeting', '会议'), ('internal_hr', 'HR'), ('internal_reply', '需回复'))
                 if analysis_result[key]
             )
-            stats.append(f"内部 **{internal_total}**" + (f"（{sub}）" if sub else ""))
+            stats.append(f"🏢 内部 **{internal_total}**" + (f"（{sub}）" if sub else ""))
         external_total = len(analysis_result['total']) - internal_total
         if external_total:
             sub = ' · '.join(
@@ -253,7 +253,7 @@ class Notifier:
                 for key, name in (('important', '重要'), ('invoice', '发票'), ('spam', '垃圾'))
                 if analysis_result[key]
             )
-            stats.append(f"外部 **{external_total}**" + (f"（{sub}）" if sub else ""))
+            stats.append(f"🌐 外部 **{external_total}**" + (f"（{sub}）" if sub else ""))
         return stats
 
     @staticmethod
