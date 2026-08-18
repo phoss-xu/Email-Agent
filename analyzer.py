@@ -29,7 +29,8 @@ class EmailAnalyzer:
                 'important_domains': [],
                 'important_keywords': [],
                 'spam_keywords': [],
-                'invoice_keywords': []
+                'invoice_keywords': [],
+                'no_reply_keywords': []
             }
     
     # 内部邮件子类型：分类键 → (配置键, 类型名)，优先级按此顺序（会议 > HR > 需回复）
@@ -79,7 +80,7 @@ class EmailAnalyzer:
             email_msg.match_reason = '内部邮件'
             return 'internal_other'
         
-        # 外部邮件：发票（优先级最高）→ 垃圾 → 重要
+        # 外部邮件：发票（优先级最高）→ 垃圾 → 通知类排除（验证码/系统通知等无需回复）→ 重要
         if self._is_invoice(subject, body):
             email_msg.match_reason = '发票关键词匹配'
             return 'invoice'
@@ -87,6 +88,10 @@ class EmailAnalyzer:
         if self._is_spam(subject, body):
             email_msg.match_reason = '垃圾关键词匹配'
             return 'spam'
+        
+        if self._is_no_reply(subject, body):
+            email_msg.match_reason = '系统通知类邮件'
+            return 'external_normal'
         
         reason = self._is_important(domain, subject, body)
         if reason:
@@ -139,6 +144,10 @@ class EmailAnalyzer:
         if not text:
             return ''
         return text[:max_len] + ('…' if len(text) > max_len else '')
+    
+    def _is_no_reply(self, subject: str, body: str) -> bool:
+        """检查是否为无需回复的系统通知（验证码/密码提醒/订阅等），命中任一关键词即排除"""
+        return self._match_keywords(subject, body, 'no_reply_keywords')
     
     def _is_invoice(self, subject: str, body: str) -> bool:
         """检查是否为发票邮件"""

@@ -64,5 +64,14 @@
   "invoice_keywords": [
     "发票", "invoice", "fapiao", "收据", "receipt",
     "账单", "billing", "payment received"
+  ],
+  "no_reply_keywords": [
+    "验证码", "动态密码", "安全码", "短信验证", "登录验证", "登录提醒",
+    "登录通知", "新设备登录", "系统通知", "修改密码", "密码过期",
+    "密码重置", "定期修改", "密码提醒", "欢迎使用", "注册成功", "订阅成功",
+    "verification code", "one-time code", "one time code", "otp",
+    "password reset", "reset password", "no-reply", "no reply",
+    "do not reply", "dont reply", "automated message", "notification",
+    "welcome", "unsubscribe", "system generated"
   ]
 }
