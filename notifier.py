@@ -301,38 +301,28 @@ class Notifier:
         names = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
         return names[weekday]
 
-    def send_internal_alert(self, emails):
-        """发送内部邮件即时提醒：数量 + 类型分布（会议记录/HR/需回复）+ 主题列表"""
-        type_names = {
-            'internal_meeting': '会议记录',
-            'internal_hr': 'HR',
-            'internal_reply': '需回复',
-            'internal_other': '其他',
-        }
-        counts = {}
-        for e in emails:
-            name = type_names.get(e.category, '其他')
-            counts[name] = counts.get(name, 0) + 1
-        dist = ' · '.join(f'{name} {n}' for name, n in counts.items())
+    def send_internal_alert(self, email_msg):
+        """发送内部邮件即时提醒（来一封发一封）：R2 图片版优先（蓝·类型标签），失败回退纯文本"""
+        if self._try_send_r2_alert(email_msg, kind='internal'):
+            return
 
+        type_name = self._internal_type_name(email_msg.category) or '内部邮件'
         lines = []
-        lines.append(f"#### 📬 收到 {len(emails)} 封内部邮件（{dist}）")
+        lines.append(f"#### 📬 内部邮件提醒 · {type_name}")
         lines.append("")
-        for i, e in enumerate(emails[:5], 1):
-            type_name = self._internal_type_name(e.category)
-            line = f"**{i}. {self._short_subject(e.subject)}**"
-            if type_name:
-                line += f" · {type_name}"
-            line += f" · 来自 {self._short_sender(e.sender)}"
-            lines.append(line)
+        lines.append(f"**{self._short_subject(email_msg.subject, max_len=30)}**")
+        lines.append("")
+        lines.append(f"来自 {self._short_sender(email_msg.sender)}")
+        lines.append("")
+        detail = f"⏰ **{email_msg.date.strftime('%Y-%m-%d %H:%M')}**"
+        if email_msg.match_reason:
+            detail += f" · {_escape_md(email_msg.match_reason)}"
+        lines.append(detail)
+        if email_msg.body:
+            body_preview = _escape_md(email_msg.body[:200].replace('\n', ' ').strip())
             lines.append("")
-            summary = self._short_summary(getattr(e, 'summary', ''))
-            if summary:
-                lines.append(f"> {summary}")
-                lines.append("")
-        if len(emails) > 5:
-            lines.append(f"…还有 **{len(emails) - 5}** 封未展示")
-            lines.append("")
+            lines.append(f"> {body_preview}…")
+        lines.append("")
         lines.append("**📧 [点击查看邮箱](https://qiye.aliyun.com/alimail/)**")
 
         self._send("📬 内部邮件提醒", '\n'.join(lines))
@@ -361,8 +351,9 @@ class Notifier:
 
         self._send("⭐ 重要邮件提醒", '\n'.join(lines))
 
-    def _try_send_r2_alert(self, email_msg) -> bool:
-        """尝试 R2 方案：生成提醒图片 → 上传 R2 → 钉钉发图片版；失败回退纯文本"""
+    def _try_send_r2_alert(self, email_msg, kind: str = 'important') -> bool:
+        """尝试 R2 方案：生成提醒图片 → 上传 R2 → 钉钉发图片版；失败回退纯文本。
+        kind: 'important'（红·匹配原因）/ 'internal'（蓝·类型标签）"""
         try:
             from report_generator import ReportGenerator
             from r2_uploader import R2Uploader
@@ -374,10 +365,13 @@ class Notifier:
 
             generator = ReportGenerator()
             # 文件名带时间：同名覆盖会撞钉钉/浏览器缓存，且钉钉图片不支持 query 参数，故用唯一文件名防缓存
-            ts_str = datetime.datetime.now().strftime('%Y-%m-%d_%H%M')
+            ts_str = datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S')
             output_dir = generator.OUTPUT_DIR
             output_dir.mkdir(parents=True, exist_ok=True)
-            image_path = generator.generate_alert_image(email_msg, str(output_dir / f'alert_{ts_str}.png'))
+            if kind == 'internal':
+                image_path = generator.generate_internal_alert_image(email_msg, str(output_dir / f'internal_alert_{ts_str}.png'))
+            else:
+                image_path = generator.generate_alert_image(email_msg, str(output_dir / f'alert_{ts_str}.png'))
             if not image_path:
                 print("  -> 提醒图片生成失败，回退纯文本")
                 return False
@@ -387,15 +381,29 @@ class Notifier:
                 print("  -> R2 上传失败，回退纯文本")
                 return False
 
-            self._send_image_alert(email_msg, img_url)
+            self._send_image_alert(email_msg, img_url, kind)
             return True
         except Exception as e:
             print(f"  -> R2 方案异常: {e}，回退纯文本")
             return False
 
-    def _send_image_alert(self, email_msg, img_url: str):
-        """发送重要邮件提醒：内嵌图片 + 摘要引用 + 邮箱链接"""
+    def _send_image_alert(self, email_msg, img_url: str, kind: str = 'important'):
+        """发送提醒：内嵌图片 + 摘要引用 + 邮箱链接。kind: important / internal"""
+        is_internal = kind == 'internal'
         lines = []
+        if is_internal:
+            type_name = self._internal_type_name(email_msg.category) or '内部邮件'
+            lines.append(f"#### 📬 内部邮件提醒 · {type_name}")
+            lines.append("")
+            lines.append(f"![Email 内部邮件]({img_url})")
+            lines.append("")
+            summary = f"> ⏰ **{email_msg.date.strftime('%m月%d日 %H:%M')}** · 来自 {self._short_sender(email_msg.sender)}"
+            lines.append(summary)
+            lines.append("")
+            lines.append("**📧 [打开邮箱处理](https://qiye.aliyun.com/alimail/)**")
+            self._send("📬 内部邮件提醒", '\n'.join(lines))
+            return
+
         lines.append("#### 📌 重要邮件提醒")
         lines.append("")
         # alt 内嵌关键词 Email（钉钉安全设置要求），避免消息末尾出现 [Email] 行

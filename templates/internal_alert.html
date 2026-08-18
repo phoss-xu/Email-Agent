@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内部邮件提醒</title>
+<!--
+  内部邮件提醒模板 · 与重要邮件提醒（alert.html）同一 Tufte 视觉系列
+  系列语义：红色只属于「重要」（外部要事），蓝色属于「内部」（公司内务）
+  视觉母题：一页被蓝色批注的纸——类型标签（会议记录/HR/需回复）就是编辑的蓝笔分类
+  反 slop：零卡片零圆角零阴影零渐变；禁 emoji 图标；蓝色取自日报分类色体系
+-->
+<style>
+  :root {
+    --paper: #FBFAF8;
+    --ink: #1A1A18;
+    --ink-2: #4A4A45;
+    --ink-3: #8A8A82;
+    --rule: #D8D6CE;
+    --rule-strong: #1A1A18;
+    --blue: #1F4E8C;
+    --link: #1F4E8C;
+    --serif: Georgia, "Songti SC", "STSong", "SimSun", serif;
+    --sans: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 28px 22px 36px;
+    font-size: 14px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── 刊头：蓝■ 标记 + 衬线标题 + 时间 ── */
+  .masthead {
+    border-bottom: 2px solid var(--rule-strong);
+    padding-bottom: 10px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .masthead .flag {
+    color: var(--blue);
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .masthead .title {
+    font-family: var(--serif);
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .masthead .time {
+    font-size: 12px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── 主题：衬线大标题 ── */
+  .subject {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.45;
+    padding: 16px 0 4px;
+  }
+
+  /* ── 发件人信息组 ── */
+  .meta {
+    padding: 8px 0 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .meta .row {
+    display: flex;
+    gap: 8px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .meta .k {
+    width: 52px;
+    flex-shrink: 0;
+    color: var(--ink-3);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+  .meta .v { color: var(--ink-2); min-width: 0; }
+  .meta .v b { color: var(--ink); font-weight: 600; }
+  .meta .domain {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-3);
+    margin-left: 6px;
+  }
+
+  /* ── 类型标签：蓝字斜体批注（本卡视觉母题）── */
+  .tag {
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    border-left: 3px solid var(--blue);
+    background: #F0F3F8;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .tag .label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--blue);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .tag .text {
+    color: var(--blue);
+    font-style: italic;
+    font-family: var(--serif);
+    font-size: 14px;
+  }
+
+  /* ── 正文预览 ── */
+  .body {
+    margin-top: 12px;
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.7;
+  }
+  .body .cut {
+    color: var(--ink-3);
+  }
+
+  /* ── 脚注 ── */
+  .footnote {
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 1px solid var(--rule);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .footnote .link {
+    color: var(--link);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 12.5px;
+  }
+  .footnote .link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- 刊头 -->
+<div class="masthead">
+  <div class="title"><span class="flag">■</span> 内部邮件提醒</div>
+  <span class="time">{{TIME}}</span>
+</div>
+
+<!-- 主题 -->
+<div class="subject">{{SUBJECT}}</div>
+
+<!-- 发件人信息组 -->
+<div class="meta">
+  <div class="row">
+    <span class="k">发件人</span>
+    <span class="v"><b>{{SENDER_NAME}}</b><span class="domain">{{SENDER_DOMAIN}}</span></span>
+  </div>
+  <div class="row">
+    <span class="k">时间</span>
+    <span class="v">{{DATE_TIME}}</span>
+  </div>
+</div>
+
+<!-- 类型标签：蓝字批注 -->
+<div class="tag">
+  <span class="label">邮件类型</span>
+  <span class="text">{{TYPE}}</span>
+</div>
+
+<!-- 正文预览 -->
+<div class="body">{{BODY_PREVIEW}}<span class="cut">…</span></div>
+
+<!-- 脚注 -->
+<div class="footnote">
+  <span>自动推送 · Email Agent</span>
+  <a class="link" href="{{MAILBOX_URL}}">打开邮箱处理 →</a>
+</div>
+
+</body>
+</html>

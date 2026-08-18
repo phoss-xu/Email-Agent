@@ -11,6 +11,7 @@ class ReportGenerator:
 
     TEMPLATE_PATH = Path(__file__).parent / 'templates' / 'report.html'
     ALERT_TEMPLATE_PATH = Path(__file__).parent / 'templates' / 'alert.html'
+    INTERNAL_ALERT_TEMPLATE_PATH = Path(__file__).parent / 'templates' / 'internal_alert.html'
     OUTPUT_DIR = Path(__file__).parent / 'data' / 'reports'
 
     # 分类 → (标记色, 行标签样式, 标签文字, 锚点前缀, 图标)
@@ -218,9 +219,17 @@ class ReportGenerator:
             print(f"  -> 截图失败: {e}")
             return False
 
-    def _render_alert_html(self, email_msg: Any) -> str:
-        """渲染单封重要邮件提醒 HTML（Tufte 系列：刊头 + 主题 + 发件人信息 + 红字批注原因 + 正文预览）"""
-        template = self.ALERT_TEMPLATE_PATH.read_text(encoding='utf-8')
+    INTERNAL_TYPE_NAMES = {
+        'internal_meeting': '会议记录',
+        'internal_hr': 'HR',
+        'internal_reply': '需回复',
+        'internal_other': '其他',
+    }
+
+    def _render_alert_html(self, email_msg: Any, template_path: Path, tag_text: str) -> str:
+        """渲染单封提醒 HTML（Tufte 系列：刊头 + 主题 + 发件人信息 + 彩色批注 + 正文预览）。
+        template_path: alert.html（红·匹配原因）或 internal_alert.html（蓝·类型标签）"""
+        template = template_path.read_text(encoding='utf-8')
         now = datetime.now()
 
         subject = self._escape(email_msg.subject) if email_msg.subject else '（无主题）'
@@ -231,8 +240,6 @@ class ReportGenerator:
             date_time = f'{email_msg.date.month}月{email_msg.date.day}日 {email_msg.date.strftime("%H:%M")}'
         else:
             date_time = '时间未知'
-
-        reason = self._escape(email_msg.match_reason) if email_msg.match_reason else '重要邮件规则匹配'
 
         # 正文预览：前 200 字符，换行转 <br>（模板内已转义过 HTML 特殊字符）
         body = ''
@@ -245,18 +252,27 @@ class ReportGenerator:
         html = html.replace('{{SENDER_NAME}}', sender_name)
         html = html.replace('{{SENDER_DOMAIN}}', domain)
         html = html.replace('{{DATE_TIME}}', date_time)
-        html = html.replace('{{REASON}}', reason)
+        if '{{REASON}}' in html:
+            html = html.replace('{{REASON}}', tag_text)
+        if '{{TYPE}}' in html:
+            html = html.replace('{{TYPE}}', tag_text)
         html = html.replace('{{BODY_PREVIEW}}', body)
         html = html.replace('{{MAILBOX_URL}}', 'https://qiye.aliyun.com/alimail/')
         return html
 
     def generate_alert_image(self, email_msg: Any, output_path: str) -> Optional[str]:
-        """
-        生成单封重要邮件提醒图片，返回图片路径。
-        失败返回 None。
-        """
+        """生成单封重要邮件提醒图片，返回图片路径。失败返回 None。"""
+        reason = self._escape(email_msg.match_reason) if email_msg.match_reason else '重要邮件规则匹配'
+        return self._generate_alert_image(email_msg, output_path, self.ALERT_TEMPLATE_PATH, reason)
+
+    def generate_internal_alert_image(self, email_msg: Any, output_path: str) -> Optional[str]:
+        """生成单封内部邮件提醒图片（蓝·类型标签版），返回图片路径。失败返回 None。"""
+        type_name = self.INTERNAL_TYPE_NAMES.get(email_msg.category, '内部邮件')
+        return self._generate_alert_image(email_msg, output_path, self.INTERNAL_ALERT_TEMPLATE_PATH, type_name)
+
+    def _generate_alert_image(self, email_msg: Any, output_path: str, template_path: Path, tag_text: str) -> Optional[str]:
         try:
-            html_content = self._render_alert_html(email_msg)
+            html_content = self._render_alert_html(email_msg, template_path, tag_text)
             success = asyncio.run(self._screenshot_async(html_content, Path(output_path)))
             if success and Path(output_path).exists():
                 print(f"  -> 提醒图片已生成: {output_path}")

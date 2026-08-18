@@ -124,8 +124,9 @@ class EmailScheduler:
             if new_internal:
                 has_new = True
                 print(f"发现 {len(new_internal)} 封新内部邮件")
-                self.notifier.send_internal_alert(new_internal)
+                # IDLE 模式：来一封发一封，每封邮件单独一条提醒
                 for email_msg in new_internal:
+                    self.notifier.send_internal_alert(email_msg)
                     if email_msg.message_id:
                         self.notified_ids.add(email_msg.message_id)
             
@@ -184,7 +185,17 @@ class EmailScheduler:
                         # 服务器在新邮件到达时推送 * N EXISTS 通知，并返回 '+ idling' 续行提示
                         idle_tag = conn._new_tag().decode('ascii')
                         conn.send(f'{idle_tag} IDLE\r\n'.encode())
-                        resp = conn.readline()
+                        # 服务器可能在 '+ idling' 之前先推送 untagged 通知（EXPUNGE/EXISTS 等），
+                        # 需循环跳过直到出现续行提示，否则会被误判为响应异常断开连接
+                        try:
+                            resp = conn.readline()
+                            while resp and b'+ idling' not in resp:
+                                notice = resp.decode(errors='ignore').strip()
+                                if notice:
+                                    print(f"[{datetime.now()}] 📨 进入 IDLE 前收到通知: {notice}")
+                                resp = conn.readline()
+                        except socket.timeout:
+                            resp = b''
                         if b'+ idling' not in resp:
                             print(f"IDLE 响应异常: {resp}")
                             break

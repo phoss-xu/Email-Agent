@@ -164,6 +164,16 @@ class EmailClient:
             return []
     
     @staticmethod
+    def _extract_uid(msg_data) -> Optional[str]:
+        """从 IMAP fetch 响应解析 UID（RFC 3501 永久唯一，删除重排后不变），解析失败返回 None"""
+        for item in msg_data:
+            if isinstance(item, tuple) and item[0]:
+                m = re.search(rb'UID (\d+)', item[0])
+                if m:
+                    return m.group(1).decode()
+        return None
+
+    @staticmethod
     def _extract_internaldate(msg_data) -> Optional[datetime]:
         """从 IMAP fetch 响应解析服务器接收时间（INTERNALDATE），解析失败返回 None"""
         for item in msg_data:
@@ -192,28 +202,30 @@ class EmailClient:
     
         for msg_id in msg_ids:
             try:
-                # 带 INTERNALDATE：获取服务器接收时间，用于 24h 精确过滤
-                status, msg_data = self.connection.fetch(msg_id, '(RFC822 INTERNALDATE)')
+                # 带 UID + INTERNALDATE：UID 作无 Message-ID 邮件的回退唯一标识（永久稳定），INTERNALDATE 用于 24h 精确过滤
+                status, msg_data = self.connection.fetch(msg_id, '(UID RFC822 INTERNALDATE)')
                 if status != 'OK':
                     continue
-    
+                
                 # 24h 过滤：INTERNALDATE 解析失败时保留（宽松处理，宁可多显示）
                 if min_received_time is not None:
                     received = self._extract_internaldate(msg_data)
                     if received is not None and received.astimezone(timezone.utc) < min_received_time:
                         continue
-                
+                                
                 raw_email = msg_data[0][1]
                 msg = message_from_bytes(raw_email)
-                
+                                
                 # 解析邮件头
                 subject = self._decode_header(msg.get('Subject', ''))
                 sender = self._decode_header(msg.get('From', ''))
                 sender_domain = self._extract_email_domain(sender)
                 message_id = msg.get('Message-ID', '')
                 if not message_id:
-                    # 部分邮件（如 SMTP 测试邮件）无 Message-ID 头：用 IMAP 序号作回退唯一标识（当日稳定，供去重）
-                    message_id = f'uid-{msg_id.decode()}'
+                    # 部分邮件（如 SMTP 测试邮件）无 Message-ID 头：用 IMAP UID 作回退唯一标识。
+                    # 不能用 IMAP 序号（seq）：邮件被删除后序号重排，新邮件会顶替旧序号导致去重误判
+                    uid = self._extract_uid(msg_data)
+                    message_id = f'uid-{uid}' if uid else f'uid-{msg_id.decode()}'
                 
                 # 解析收件人/抄送（仅取邮箱地址，小写归一）
                 recipients = [addr.lower() for _, addr in getaddresses([msg.get('To', '')]) if addr]
