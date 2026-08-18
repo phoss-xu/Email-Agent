@@ -17,8 +17,14 @@ class ReportGenerator:
     SECTION_STYLES = {
         'important': ('var(--red)', 'tag-imp', '重要', 'imp'),
         'invoice': ('var(--orange)', 'tag-inv', '发票', 'inv'),
-        'normal': ('var(--blue)', 'tag-nor', '普通', 'nor'),
         'spam': ('var(--gray)', 'tag-spm', '垃圾', 'spm'),
+    }
+
+    # 内部邮件子类型 → (子标题, 行标签样式, 标签文字, 锚点前缀)
+    INTERNAL_STYLES = {
+        'internal_meeting': ('会议记录', 'tag-mtg', '会议', 'int-m'),
+        'internal_hr': ('HR', 'tag-hr', 'HR', 'int-h'),
+        'internal_reply': ('需回复', 'tag-reply', '需回复', 'int-r'),
     }
 
     @staticmethod
@@ -34,8 +40,10 @@ class ReportGenerator:
             return sender.split('@')[0]
         return sender
 
-    def _build_email_section(self, emails: List[Any], title: str, style_key: str) -> str:
-        """构建 Tufte 分组区块：分组小标题 + 分栏表格（主题/发件人/类）"""
+    def _build_email_section(self, emails: List[Any], title: str, style_key: str,
+                             show_summary: bool = False) -> str:
+        """构建 Tufte 分组区块：分组小标题 + 分栏表格（主题/发件人/类）；
+        show_summary=True 时每行追加摘要（用于外部重要邮件）"""
         if not emails:
             return ''
 
@@ -63,12 +71,76 @@ class ReportGenerator:
             html_parts.append(f'    <span class="c-from">{self._escape(self._sender_name(e.sender))}</span>')
             html_parts.append(f'    <span class="c-tag {tag_cls}">{tag_text}</span>')
             html_parts.append(f'  </div>')
+            if show_summary and getattr(e, 'summary', ''):
+                html_parts.append(f'  <div class="c-summary">{self._escape(e.summary)}</div>')
 
         if len(emails) > 10:
             html_parts.append(f'  <div class="empty-hint">… 还有 {len(emails) - 10} 封</div>')
 
         html_parts.append(f'</div>')
         return '\n'.join(html_parts)
+
+    def _build_internal_section(self, analysis_result: Dict) -> str:
+        """构建内部邮件区块：总标题 + 各子类型小节（主题/发件人 + 摘要）"""
+        internal_keys = ('internal_meeting', 'internal_hr', 'internal_reply')
+        emails_by_type = {key: analysis_result.get(key, []) for key in internal_keys}
+        other_emails = analysis_result.get('internal_other', [])
+        total = sum(len(v) for v in emails_by_type.values()) + len(other_emails)
+        if total == 0:
+            return ''
+
+        html_parts = []
+        html_parts.append(f'<div class="group">')
+        html_parts.append(f'  <span class="gname"><span class="mark" style="color:var(--blue);">■</span> 内部邮件</span>')
+        html_parts.append(f'  <span class="gcount">共 <b>{total}</b> 封</span>')
+        html_parts.append(f'</div>')
+
+        for key, (sub_title, tag_cls, tag_text, anchor_prefix) in self.INTERNAL_STYLES.items():
+            emails = emails_by_type[key]
+            if not emails:
+                continue
+            html_parts.append(f'<div class="subgroup">')
+            html_parts.append(f'  <span class="sname">{sub_title}</span>')
+            html_parts.append(f'  <span class="scount">共 <b>{len(emails)}</b> 封</span>')
+            html_parts.append(f'</div>')
+            html_parts.append(f'<div class="table">')
+            for i, e in enumerate(emails[:10], 1):
+                html_parts.append(f'  <div class="trow" id="{anchor_prefix}-{i}">')
+                html_parts.append(f'    <span class="c-subject">{self._escape(e.subject)}</span>')
+                html_parts.append(f'    <span class="c-from">{self._escape(self._sender_name(e.sender))}</span>')
+                html_parts.append(f'    <span class="c-tag {tag_cls}">{tag_text}</span>')
+                html_parts.append(f'  </div>')
+                if getattr(e, 'summary', ''):
+                    html_parts.append(f'  <div class="c-summary">{self._escape(e.summary)}</div>')
+            if len(emails) > 10:
+                html_parts.append(f'  <div class="empty-hint">… 还有 {len(emails) - 10} 封</div>')
+            html_parts.append(f'</div>')
+
+        return '\n'.join(html_parts)
+
+    @staticmethod
+    def _build_overview_items(analysis_result: Dict) -> str:
+        """构建概览明细：内部 N（会议 x · HR x · 需回复 x）｜ 外部 N（重要 x · 发票 x · 垃圾 x）"""
+        internal_total = sum(len(analysis_result.get(k, [])) for k in
+                             ('internal_meeting', 'internal_hr', 'internal_reply', 'internal_other'))
+        external_total = len(analysis_result.get('total', [])) - internal_total
+
+        parts = []
+        if internal_total:
+            sub = ' · '.join(
+                f'{name} {len(analysis_result.get(key, []))}'
+                for key, name in (('internal_meeting', '会议'), ('internal_hr', 'HR'), ('internal_reply', '需回复'))
+                if analysis_result.get(key)
+            )
+            parts.append(f'<span class="k">内部</span> <b>{internal_total}</b>' + (f'（{sub}）' if sub else ''))
+        if external_total:
+            sub = ' · '.join(
+                f'{name} {len(analysis_result.get(key, []))}'
+                for key, name in (('important', '重要'), ('invoice', '发票'), ('spam', '垃圾'))
+                if analysis_result.get(key)
+            )
+            parts.append(f'<span class="k">外部</span> <b>{external_total}</b>' + (f'（{sub}）' if sub else ''))
+        return ' ｜ '.join(parts)
 
     def _escape(self, text: str) -> str:
         """HTML转义"""
@@ -81,7 +153,6 @@ class ReportGenerator:
         total = len(analysis_result['total'])
         important = analysis_result['important']
         invoice = analysis_result['invoice']
-        normal = analysis_result['normal']
         spam = analysis_result['spam']
 
         now = datetime.now()
@@ -91,9 +162,9 @@ class ReportGenerator:
         time_str = now.strftime('%H:%M')
 
         # 构建分类区块（空分类不渲染）
-        important_section = self._build_email_section(important, '重要邮件', 'important')
+        internal_section = self._build_internal_section(analysis_result)
+        important_section = self._build_email_section(important, '外部重要邮件', 'important', show_summary=True)
         invoice_section = self._build_email_section(invoice, '发票邮件', 'invoice')
-        normal_section = self._build_email_section(normal, '普通邮件', 'normal')
         spam_section = self._build_email_section(spam, '已拦截垃圾', 'spam')
 
         # 替换模板占位符
@@ -101,14 +172,12 @@ class ReportGenerator:
         html = html.replace('{{DATE}}', date_str)
         html = html.replace('{{TIME}}', time_str)
         html = html.replace('{{TOTAL_COUNT}}', str(total))
-        html = html.replace('{{IMPORTANT_COUNT}}', str(len(important)))
-        html = html.replace('{{INVOICE_COUNT}}', str(len(invoice)))
-        html = html.replace('{{NORMAL_COUNT}}', str(len(normal)))
         html = html.replace('{{SPAM_COUNT}}', str(len(spam)))
+        html = html.replace('{{OVERVIEW_ITEMS}}', self._build_overview_items(analysis_result))
         html = html.replace('{{REPORT_URL}}', '#')
+        html = html.replace('{{INTERNAL_SECTION}}', internal_section)
         html = html.replace('{{IMPORTANT_SECTION}}', important_section)
         html = html.replace('{{INVOICE_SECTION}}', invoice_section)
-        html = html.replace('{{NORMAL_SECTION}}', normal_section)
         html = html.replace('{{SPAM_SECTION}}', spam_section)
 
         return html

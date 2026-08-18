@@ -3,7 +3,7 @@ import imaplib
 import email.message
 from email import message_from_bytes
 from email.header import decode_header
-from email.utils import parsedate_to_datetime
+from email.utils import parsedate_to_datetime, getaddresses
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
@@ -22,8 +22,13 @@ class EmailMessage:
     date: datetime
     body: str
     is_read: bool = False
-    category: str = 'normal'  # normal, spam, important, invoice
+    recipients: List[str] = field(default_factory=list)  # To 收件人邮箱地址（小写）
+    cc: List[str] = field(default_factory=list)          # Cc 抄送邮箱地址（小写）
+    # 分类取值：internal_meeting / internal_hr / internal_reply / internal_other（内部），
+    # important / invoice / spam / external_normal（外部，external_normal 只计数不展示明细）
+    category: str = 'external_normal'
     match_reason: str = ''    # 匹配原因
+    summary: str = ''         # 摘要（内部邮件与外部重要邮件，截取正文开头）
     
     def __str__(self) -> str:
         return f"[{self.sender}] {self.subject}"
@@ -207,6 +212,10 @@ class EmailClient:
                 sender_domain = self._extract_email_domain(sender)
                 message_id = msg.get('Message-ID', '')
                 
+                # 解析收件人/抄送（仅取邮箱地址，小写归一）
+                recipients = [addr.lower() for _, addr in getaddresses([msg.get('To', '')]) if addr]
+                cc = [addr.lower() for _, addr in getaddresses([msg.get('Cc', '')]) if addr]
+                
                 # 解析日期
                 date_str = msg.get('Date', '')
                 try:
@@ -223,7 +232,9 @@ class EmailClient:
                     sender=sender,
                     sender_domain=sender_domain,
                     date=email_date,
-                    body=body
+                    body=body,
+                    recipients=recipients,
+                    cc=cc,
                 )
                 email_list.append(email_msg)
                 

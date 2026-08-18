@@ -1,11 +1,37 @@
 {
+  "internal_domains": [
+    "aqara.com",
+    "aqara.cn"
+  ],
+  "internal_meeting_keywords": [
+    "会议纪要", "会议记录", "纪要", "例会", "周会", "月会", "晨会",
+    "复盘", "评审会", "培训会",
+    "meeting", "meeting minutes", "meeting notes",
+    "minutes of meeting", "agenda", "recap", "standup", "workshop",
+    "briefing", "debrief", "weekly sync", "review meeting"
+  ],
+  "internal_hr_keywords": [
+    "hr", "人事", "薪资", "工资", "绩效", "offer", "入职", "离职",
+    "考勤", "招聘", "社保", "公积金", "转正", "请假", "年终奖", "福利",
+    "human resources", "payroll", "salary", "compensation", "benefits",
+    "recruitment", "hiring", "onboarding", "offboarding",
+    "performance review", "appraisal", "attendance", "headcount", "annual leave"
+  ],
+  "internal_reply_keywords": [
+    "请回复", "请确认", "请答复", "麻烦回复", "期待您的回复", "盼复",
+    "尽快回复", "需要回复", "需回复", "请尽快确认", "确认一下", "回复我",
+    "回复确认", "确认回复",
+    "please reply", "please confirm", "please respond", "kindly reply",
+    "kindly confirm", "awaiting your reply", "awaiting your response",
+    "need your confirmation", "action required", "rsvp",
+    "confirmation needed", "looking forward to your reply"
+  ],
   "important_domains": [
     "apple.com",
     "icloud.com",
     "google.com",
     "gmail.com",
     "somfy.com",
-    "aqara.com",
     "lumiunited.com",
     "qoder.com.cn",
     "microsoft.com",
@@ -27,7 +53,13 @@
   "spam_keywords": [
     "优惠", "促销", "中奖", "免费领取", "限时折扣",
     "恭喜您", "抽奖", "特价", "清仓", "秒杀",
-    "点击领取", "万元大奖", "独家优惠"
+    "点击领取", "万元大奖", "独家优惠",
+    "discount", "clearance", "sale", "deals", "promotion", "promotional",
+    "limited time", "act now", "buy now", "free gift", "free trial",
+    "congratulations", "winner", "prize", "lottery", "claim your prize",
+    "earn money", "make money", "work from home", "cash prize", "bonus",
+    "casino", "gambling", "bitcoin", "cryptocurrency",
+    "guaranteed", "unlimited", "click here", "urgent action"
   ],
   "invoice_keywords": [
     "发票", "invoice", "fapiao", "收据", "receipt",

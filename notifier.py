@@ -89,19 +89,10 @@ class Notifier:
         """发送钉钉日报：内嵌图片 + 重要/发票邮件链接列表 + 完整版链接"""
         important_emails = analysis_result['important']
         invoice_emails = analysis_result['invoice']
-        normal_emails = analysis_result['normal']
         spam_emails = analysis_result['spam']
 
         stats = f"共收到 **{len(analysis_result['total'])}** 封邮件"
-        parts = []
-        if important_emails:
-            parts.append(f"重要 **{len(important_emails)}**")
-        if invoice_emails:
-            parts.append(f"发票 **{len(invoice_emails)}**")
-        if normal_emails:
-            parts.append(f"普通 **{len(normal_emails)}**")
-        if spam_emails:
-            parts.append(f"垃圾 **{len(spam_emails)}**")
+        parts = self._overview_stats(analysis_result)
         if parts:
             stats += " ｜ " + " ｜ ".join(parts)
 
@@ -115,9 +106,9 @@ class Notifier:
         lines.append(f"> {stats}")
         lines.append("")
 
-        # 重要邮件：主题链接到邮箱网页版（IMAP 邮件无公开直达 URL）
+        # 外部重要邮件：主题链接到邮箱网页版（IMAP 邮件无公开直达 URL）
         if important_emails:
-            lines.append("**重要邮件**")
+            lines.append("**外部重要邮件**")
             lines.append("")
             for i, e in enumerate(important_emails[:5], 1):
                 link_text = self._short_subject(e.subject).replace('[', '［').replace(']', '］')
@@ -147,10 +138,13 @@ class Notifier:
     def _send_text_daily_report(self, analysis_result: dict):
         """发送日报汇总（钉钉友好版 Markdown，R2 不可用时的回退方案）"""
         total = len(analysis_result['total'])
-        spam_emails = analysis_result['spam']
+        internal_emails = [
+            e for key in ('internal_meeting', 'internal_hr', 'internal_reply', 'internal_other')
+            for e in analysis_result[key]
+        ]
         important_emails = analysis_result['important']
         invoice_emails = analysis_result['invoice']
-        normal_emails = analysis_result['normal']
+        spam_emails = analysis_result['spam']
         now = datetime.datetime.now()
 
         lines = []
@@ -167,22 +161,33 @@ class Notifier:
             lines.append("")
             lines.append(f"> 共收到 **{total}** 封邮件")
             lines.append("")
-            stats = []
-            if important_emails:
-                stats.append(f"重要 **{len(important_emails)}**")
-            if invoice_emails:
-                stats.append(f"发票 **{len(invoice_emails)}**")
-            if normal_emails:
-                stats.append(f"普通 **{len(normal_emails)}**")
-            if spam_emails:
-                stats.append(f"垃圾 **{len(spam_emails)}**")
+            stats = self._overview_stats(analysis_result)
             if stats:
                 lines.append(" ｜ ".join(stats))
                 lines.append("")
 
-            # ── 重要邮件（每封两段：粗体主题 + 普通详情；段间空行防止钉钉合并成一行）──
+            # ── 内部邮件（每封：粗体主题 + 类型标注 + 摘要引用块）──
+            if internal_emails:
+                lines.append(f"#### 内部邮件（**{len(internal_emails)}**）")
+                lines.append("")
+                for i, e in enumerate(internal_emails[:5], 1):
+                    type_name = self._internal_type_name(e.category)
+                    line = f"**{i}. {self._short_subject(e.subject)}**"
+                    if type_name:
+                        line += f" · {type_name}"
+                    lines.append(line)
+                    lines.append("")
+                    summary = self._short_summary(getattr(e, 'summary', ''))
+                    if summary:
+                        lines.append(f"> {summary}")
+                        lines.append("")
+                if len(internal_emails) > 5:
+                    lines.append(f"…还有 **{len(internal_emails) - 5}** 封未展示")
+                    lines.append("")
+
+            # ── 外部重要邮件（每封两段：粗体主题 + 详情；段间空行防止钉钉合并成一行）──
             if important_emails:
-                lines.append(f"#### 重要邮件（**{len(important_emails)}**）")
+                lines.append(f"#### 外部重要邮件（**{len(important_emails)}**）")
                 lines.append("")
                 for i, e in enumerate(important_emails[:5], 1):
                     lines.append(f"**{i}. {self._short_subject(e.subject)}**")
@@ -193,6 +198,10 @@ class Notifier:
                         detail += f" · 原因：{reason}"
                     lines.append(detail)
                     lines.append("")
+                    summary = self._short_summary(getattr(e, 'summary', ''))
+                    if summary:
+                        lines.append(f"> {summary}")
+                        lines.append("")
                 if len(important_emails) > 5:
                     lines.append(f"…还有 **{len(important_emails) - 5}** 封未展示")
                     lines.append("")
@@ -210,19 +219,6 @@ class Notifier:
                     lines.append(f"…还有 **{len(invoice_emails) - 3}** 封未展示")
                     lines.append("")
 
-            # ── 普通邮件（单行式，每条独立段落）──
-            if normal_emails:
-                lines.append(f"#### 普通邮件（**{len(normal_emails)}**）")
-                lines.append("")
-                for e in normal_emails[:5]:
-                    lines.append(
-                        f"**{self._short_subject(e.subject)}** · 来自 {self._short_sender(e.sender)}"
-                    )
-                    lines.append("")
-                if len(normal_emails) > 5:
-                    lines.append(f"…还有 **{len(normal_emails) - 5}** 封未展示")
-                    lines.append("")
-
             # ── 垃圾邮件（单行引用块，弱化展示）──
             if spam_emails:
                 lines.append(f"#### 已拦截垃圾（**{len(spam_emails)}**）")
@@ -236,6 +232,48 @@ class Notifier:
         lines.append("**📧 [点击查看邮箱](https://qiye.aliyun.com/alimail/) · 自动推送 by Email Agent**")
 
         self._send("📧 邮件日报", '\n'.join(lines))
+
+    @staticmethod
+    def _overview_stats(analysis_result: dict) -> list:
+        """构建概览统计：内部 N（会议 x · HR x · 需回复 x）｜ 外部 N（重要 x · 发票 x · 垃圾 x）"""
+        internal_total = sum(len(analysis_result[k]) for k in
+                             ('internal_meeting', 'internal_hr', 'internal_reply', 'internal_other'))
+        stats = []
+        if internal_total:
+            sub = ' · '.join(
+                f'{name} {len(analysis_result[key])}'
+                for key, name in (('internal_meeting', '会议'), ('internal_hr', 'HR'), ('internal_reply', '需回复'))
+                if analysis_result[key]
+            )
+            stats.append(f"内部 **{internal_total}**" + (f"（{sub}）" if sub else ""))
+        external_total = len(analysis_result['total']) - internal_total
+        if external_total:
+            sub = ' · '.join(
+                f'{name} {len(analysis_result[key])}'
+                for key, name in (('important', '重要'), ('invoice', '发票'), ('spam', '垃圾'))
+                if analysis_result[key]
+            )
+            stats.append(f"外部 **{external_total}**" + (f"（{sub}）" if sub else ""))
+        return stats
+
+    @staticmethod
+    def _internal_type_name(category: str) -> str:
+        """内部邮件子类型显示名"""
+        names = {
+            'internal_meeting': '会议记录',
+            'internal_hr': 'HR',
+            'internal_reply': '需回复',
+            'internal_other': '其他',
+        }
+        return names.get(category, '')
+
+    @staticmethod
+    def _short_summary(summary: str, max_len: int = 100) -> str:
+        """摘要截断并转义 *，防止破坏钉钉粗体配对"""
+        if not summary:
+            return ''
+        text = summary if len(summary) <= max_len else summary[:max_len] + '…'
+        return _escape_md(text)
 
     @staticmethod
     def _short_sender(sender: str, max_len: int = 20) -> str:

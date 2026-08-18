@@ -124,8 +124,10 @@
   }
   .tag-imp { color: var(--red); }
   .tag-inv { color: var(--orange); }
-  .tag-nor { color: var(--blue); }
   .tag-spm { color: var(--gray); }
+  .tag-mtg { color: var(--blue); }
+  .tag-hr { color: var(--ink-2); }
+  .tag-reply { color: var(--red); }
 
   /* 分组小标题（带计数，行内标注） */
   .group {
@@ -151,6 +153,34 @@
   .group.spam-g .gname { color: var(--gray); }
   .trow.spam-row .c-subject { color: var(--ink-3); }
   .trow.spam-row .c-from { color: #A9A9A0; }
+
+  /* 内部邮件子类型小节标题 */
+  .subgroup {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 6px 0 2px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .subgroup .sname {
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .subgroup .scount {
+    font-size: 11.5px;
+    color: var(--ink-3);
+  }
+  .subgroup .scount b { color: var(--ink-2); font-weight: 600; }
+
+  /* 邮件摘要行（跟随主题行，无底边线） */
+  .c-summary {
+    padding: 0 0 8px;
+    font-size: 12px;
+    color: var(--ink-3);
+    line-height: 1.6;
+  }
 
   /* 超出条数提示 */
   .empty-hint {
@@ -192,19 +222,17 @@
 <!-- 概览：一句话结论 -->
 <div class="summary">
   <span>今日共收到 </span><span class="total">{{TOTAL_COUNT}}</span><span> 封邮件</span>
-  <div class="items">
-    <span class="k">重要</span> {{IMPORTANT_COUNT}} · <span class="k">发票</span> {{INVOICE_COUNT}} · <span class="k">普通</span> {{NORMAL_COUNT}} · <span class="k">垃圾</span> {{SPAM_COUNT}}
-  </div>
+  <div class="items">{{OVERVIEW_ITEMS}}</div>
 </div>
 
-<!-- 重要邮件 -->
+<!-- 内部邮件（会议记录 / HR / 需回复，含摘要） -->
+{{INTERNAL_SECTION}}
+
+<!-- 外部重要邮件（含摘要） -->
 {{IMPORTANT_SECTION}}
 
 <!-- 发票邮件 -->
 {{INVOICE_SECTION}}
-
-<!-- 普通邮件 -->
-{{NORMAL_SECTION}}
 
 <!-- 垃圾邮件 -->
 {{SPAM_SECTION}}
