@@ -1,5 +1,9 @@
-"""调度器模块 - 定时任务管理"""
+"""调度器模块 - 定时任务管理 + IMAP IDLE 实时监听"""
 import json
+import time
+import socket
+import threading
+import imaplib
 from pathlib import Path
 from datetime import datetime, date
 from typing import Set
@@ -14,7 +18,10 @@ from notifier import Notifier
 
 
 class EmailScheduler:
-    """邮件调度器"""
+    """邮件调度器：IMAP IDLE 实时监听为主，定时轮询为兜底，每日日报定时推送"""
+    
+    IDLE_TIMEOUT = 20 * 60  # IDLE 单次最长等待秒数（服务器空闲断开通常 30 分钟，保守 20 分钟重来）
+    RECONNECT_DELAY = 5     # IDLE 连接异常后的重连间隔（秒）
     
     def __init__(self):
         self.scheduler = BackgroundScheduler()
@@ -22,6 +29,7 @@ class EmailScheduler:
         self.analyzer = EmailAnalyzer()
         self.notifier = Notifier()
         self.notified_ids = self._load_notified_ids()
+        self._stop_flag = False
     
     def _get_cache_path(self) -> Path:
         """获取缓存文件路径（优先使用 data 目录）"""
@@ -115,6 +123,71 @@ class EmailScheduler:
         except Exception as e:
             print(f"检查邮件异常: {e}")
     
+    def _idle_listener(self):
+        """IMAP IDLE 长连接监听：新邮件到达时服务器主动通知，立即触发检测（秒级响应）。
+        使用独立连接，不干扰 EmailClient 的 fetch 连接；异常自动重连；
+        定时轮询（IntervalTrigger）保留作为兜底，防止 IDLE 通知丢失。
+        """
+        while not self._stop_flag:
+            conn = None
+            try:
+                conn = imaplib.IMAP4_SSL(Config.IMAP_SERVER, Config.IMAP_PORT, timeout=30)
+                conn.login(Config.EMAIL_USER, Config.EMAIL_PASSWORD)
+                conn.select('INBOX')
+                print(f"[{datetime.now()}] 📡 IDLE 实时监听已建立（新邮件秒级触发）")
+                
+                while not self._stop_flag:
+                    try:
+                        # 进入 IDLE（必须带 tag：RFC 2177，无 tag 会被解析为空命令返回 BAD）；
+                        # 服务器在新邮件到达时推送 * N EXISTS 通知，并返回 '+ idling' 续行提示
+                        idle_tag = conn._new_tag().decode('ascii')
+                        conn.send(f'{idle_tag} IDLE\r\n'.encode())
+                        resp = conn.readline()
+                        if b'+ idling' not in resp:
+                            print(f"IDLE 响应异常: {resp}")
+                            break
+                        
+                        conn.sock.settimeout(self.IDLE_TIMEOUT)
+                        try:
+                            data = conn.readline()  # 阻塞等待服务器通知或超时
+                        except socket.timeout:
+                            # 单次 IDLE 超时：发送 DONE 后重新进入，保活连接
+                            conn.send(b'DONE\r\n')
+                            conn.readline()
+                            conn.sock.settimeout(30)
+                            continue
+                        
+                        # 收到通知（EXISTS/RECENT 等），结束本次 IDLE
+                        conn.send(b'DONE\r\n')
+                        conn.readline()
+                        conn.sock.settimeout(30)
+                        
+                        if data:
+                            notice = data.decode(errors='ignore').strip()
+                            print(f"[{datetime.now()}] 📨 IDLE 收到通知: {notice}，立即检测")
+                            try:
+                                self.check_important_emails()
+                            except Exception as e:
+                                print(f"IDLE 触发检测异常: {e}")
+                    except socket.timeout:
+                        continue
+                    except Exception as e:
+                        print(f"IDLE 会话异常: {e}")
+                        break
+                
+            except Exception as e:
+                print(f"IDLE 连接异常: {e}")
+            finally:
+                if conn:
+                    try:
+                        conn.logout()
+                    except Exception:
+                        pass
+            
+            if not self._stop_flag:
+                print(f"[{datetime.now()}] {self.RECONNECT_DELAY} 秒后重连 IDLE...")
+                time.sleep(self.RECONNECT_DELAY)
+
     def start(self):
         """启动调度器"""
         if not Config.validate():
@@ -127,18 +200,20 @@ class EmailScheduler:
             name='每日邮件汇总'
         )
         
+        # 定时轮询保留为兜底（IDLE 失效或通知丢失时仍有检测）
         self.scheduler.add_job(
             self.check_important_emails,
             IntervalTrigger(minutes=Config.CHECK_INTERVAL),
             id='check_important',
-            name='重要邮件实时检测'
+            name='重要邮件兜底检测'
         )
         
         report_time = f"{Config.DAILY_REPORT_HOUR:02d}:{Config.DAILY_REPORT_MINUTE:02d}"
         print("=" * 50)
         print("📧 邮件监控系统已启动")
         print(f"⏰ 日报时间: 每天 {report_time}")
-        print(f"🔄 检测间隔: {Config.CHECK_INTERVAL} 分钟")
+        print(f"📡 实时监听: IMAP IDLE（新邮件秒级触发）")
+        print(f"🔄 兜底轮询: {Config.CHECK_INTERVAL} 分钟")
         print(f"📮 邮箱: {Config.EMAIL_USER}")
         print(f"🔔 推送: 钉钉群机器人")
         print("=" * 50)
@@ -146,10 +221,13 @@ class EmailScheduler:
         print("\n执行首次检测...")
         self.check_important_emails()
         
+        # 启动 IDLE 实时监听线程（守护线程，进程退出自动结束）
+        idle_thread = threading.Thread(target=self._idle_listener, daemon=True, name='imap-idle')
+        idle_thread.start()
+        
         self.scheduler.start()
         
         try:
-            import time
             while True:
                 time.sleep(60)
         except (KeyboardInterrupt, SystemExit):
@@ -158,6 +236,7 @@ class EmailScheduler:
     def stop(self):
         """停止调度器"""
         print("\n正在关闭监控系统...")
+        self._stop_flag = True
         self.client.disconnect()
         self.scheduler.shutdown()
         print("已停止")

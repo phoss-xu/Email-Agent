@@ -17,7 +17,9 @@ IMAP 拉取邮件 (email_client.py)
   → 托管 (r2_uploader.py)：Cloudflare R2，钉钉内嵌图片 + 完整版 HTML 链接
 ```
 
-入口 `main.py` → `scheduler.EmailScheduler.start()`（首次启动立即执行一次重要邮件检测，之后按 `CHECK_INTERVAL` 轮询）。
+入口 `main.py` → `scheduler.EmailScheduler.start()`（首次启动立即执行一次重要邮件检测；之后 **IMAP IDLE 长连接实时监听**为主——新邮件到达服务器秒级推送通知立即检测，`CHECK_INTERVAL` 轮询仅作兜底防通知丢失）。
+
+> IDLE 实现要点：阿里企业邮箱（imap.qiye.aliyun.com）支持 IDLE；命令必须带 tag（`A3 IDLE`，无 tag 会返回 `IDLE BAD invalid command or parameters`）；用独立 IMAP 连接监听，不干扰 EmailClient 的 fetch 连接；单次 IDLE 20 分钟超时后 DONE 重新进入以保活；异常 5 秒自动重连。
 
 ## 2. 前置条件
 
