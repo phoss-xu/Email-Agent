@@ -51,12 +51,12 @@ systemctl restart docker
 从本仓库所在机器执行（`<SERVER>` 为服务器地址）：
 ```bash
 rsync -avz --delete --exclude venv --exclude __pycache__ --exclude data \
-  --exclude .git --exclude '.env' --exclude '*.png' --exclude '*.html' \
+  --exclude .git --exclude '.env' \
   --exclude design-demos --exclude 'test_*.py' \
   ./ <SERVER>:/opt/email_observer/
 ```
 必须包含：`Dockerfile`、`docker-compose.yml`、`requirements.txt`、`config.py`、`email_client.py`、`analyzer.py`、`notifier.py`、`scheduler.py`、`main.py`、`r2_uploader.py`、`report_generator.py`、`domains.json`、`templates/`。
-注意：若通过 expect 包裹 rsync 传参，exclude 模式必须用 Tcl 花括号 `{}` 包裹（单引号会被当作字面字符导致排除失效）；被排除文件残留需在服务器上手动 `rm`。
+注意：若通过 expect 包裹 rsync 传参，exclude 模式必须用 Tcl 花括号 `{}` 包裹（单引号会被当作字面字符导致排除失效）；被排除文件残留需在服务器上手动 `rm`。**禁止用 `--exclude '*.html'`/`--exclude '*.png'` 这类通配排除**（曾因此漏传 `templates/report.html` 导致日报占位符残留），需排除设计演示文件时直接排除 `design-demos` 目录。
 
 ### 3.3 准备环境变量
 ```bash
