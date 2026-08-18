@@ -40,17 +40,14 @@
 
 - 服务器：`172.16.200.141`（`/home/xzc/SI/test/Email-Agent`，Docker Compose 容器 `email-observer`）
 - 本地分支 `dev` → GitHub `phoss-xu/Email-Agent`，**push 必须显式 `git push origin dev`**
-- 最新 commit：`58d4565`（内部邮件即时提醒 + uid 回退）
-- ⚠️ 服务器上跑的 `58d4565` 是**旧版汇总式提醒**；本地工作区有未部署的新改动（见下）
+- 最新 commit：`7aaf2d6`（内部邮件提醒图片版 + 来一封发一封 + IMAP UID 去重 + IDLE EXPUNGE 跳过 + PROGRESS.md）
+- ✅ 服务器已部署 `7aaf2d6`（2026-08-18 16:40 验证：代码特征齐全、IDLE 正常、首次检测推送成功）
 
-## 当前工作区改动（未 commit / 未部署）
+## 历史重要修复（已合入）
 
-1. **内部邮件提醒改为图片版 + 逐封发送**：
-   - `templates/internal_alert.html`（新增，蓝■ 类型标签 Tufte 模板）
-   - `report_generator.py`：`_render_alert_html` 泛化 + `generate_internal_alert_image`
-   - `notifier.py`：`send_internal_alert(email_msg)` 单封图片版；`_try_send_r2_alert(kind=...)` 参数化
-   - `scheduler.py`：`new_internal` 逐封调用
-2. 验证状态：本地编译通过 + demo 渲染成功（`data/reports/demo_internal_*.png`），**等用户确认效果后**再 commit + 部署
+- **IMAP 序号去重撞车**：无 Message-ID 邮件的回退标识曾用 IMAP 序号（seq），邮件被删后序号重排导致新邮件顶替旧标识被误判已提醒；已改用 IMAP UID（`_extract_uid`，RFC 3501 永久唯一）
+- **IDLE 进入被积压通知误伤**：重新进入 IDLE 时 `* N EXPUNGE` 等 untagged 通知可能抢在 `+ idling` 前到达；已改为循环跳过直到出现 `+ idling`
+- **IDLE 连接被轮询并发断开**：进入 IDLE 前 `_drain()` 清空积压通知
 
 ## 关键坑（务必遵守）
 
