@@ -123,6 +123,29 @@ class EmailScheduler:
         except Exception as e:
             print(f"检查邮件异常: {e}")
     
+    def _drain(self, conn) -> bool:
+        """清空连接上积压的 untagged 通知并返回是否有邮件通知。
+        DONE 后/检测期间服务器仍可能推送 * N EXISTS（IMAP 允许随时发送 untagged 响应），
+        若不及时读取会积压导致服务器断开连接（实测 IDLE 响应异常 b''）。
+        """
+        has_notice = False
+        conn.sock.settimeout(0.3)
+        try:
+            while True:
+                try:
+                    chunk = conn.sock.recv(4096)
+                except socket.timeout:
+                    break
+                if not chunk:
+                    break  # 连接已关闭（EOF），由外层重连逻辑处理
+                if b'EXISTS' in chunk or b'RECENT' in chunk:
+                    has_notice = True
+        except OSError:
+            pass
+        finally:
+            conn.sock.settimeout(30)
+        return has_notice
+
     def _idle_listener(self):
         """IMAP IDLE 长连接监听：新邮件到达时服务器主动通知，立即触发检测（秒级响应）。
         使用独立连接，不干扰 EmailClient 的 fetch 连接；异常自动重连；
@@ -138,6 +161,11 @@ class EmailScheduler:
                 
                 while not self._stop_flag:
                     try:
+                        # 进入 IDLE 前清空积压的 untagged 通知（避免连接状态错乱被服务器断开）
+                        if self._drain(conn):
+                            print(f"[{datetime.now()}] 📨 清空积压通知（检测期间有新邮件），立即检测")
+                            self.check_important_emails()
+                        
                         # 进入 IDLE（必须带 tag：RFC 2177，无 tag 会被解析为空命令返回 BAD）；
                         # 服务器在新邮件到达时推送 * N EXISTS 通知，并返回 '+ idling' 续行提示
                         idle_tag = conn._new_tag().decode('ascii')
