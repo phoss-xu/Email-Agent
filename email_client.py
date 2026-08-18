@@ -211,6 +211,9 @@ class EmailClient:
                 sender = self._decode_header(msg.get('From', ''))
                 sender_domain = self._extract_email_domain(sender)
                 message_id = msg.get('Message-ID', '')
+                if not message_id:
+                    # 部分邮件（如 SMTP 测试邮件）无 Message-ID 头：用 IMAP 序号作回退唯一标识（当日稳定，供去重）
+                    message_id = f'uid-{msg_id.decode()}'
                 
                 # 解析收件人/抄送（仅取邮箱地址，小写归一）
                 recipients = [addr.lower() for _, addr in getaddresses([msg.get('To', '')]) if addr]

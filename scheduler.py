@@ -79,7 +79,7 @@ class EmailScheduler:
         print(f"日报已发送: 共 {len(emails)} 封邮件")
     
     def check_important_emails(self):
-        """检查重要邮件和发票邮件（实时检测）"""
+        """检查新邮件（实时检测）：外部重要/发票即时提醒 + 内部邮件数量/类型提醒"""
         print(f"[{datetime.now()}] 检查新邮件...")
         
         try:
@@ -94,6 +94,12 @@ class EmailScheduler:
             ]
             new_invoice = [
                 e for e in invoice_emails
+                if e.message_id and e.message_id not in self.notified_ids
+            ]
+            # 内部邮件（会议记录/HR/需回复/其他）同样即时提醒，汇总数量与类型分布
+            new_internal = [
+                e for key in ('internal_meeting', 'internal_hr', 'internal_reply', 'internal_other')
+                for e in analysis_result[key]
                 if e.message_id and e.message_id not in self.notified_ids
             ]
             
@@ -112,6 +118,14 @@ class EmailScheduler:
                 print(f"发现 {len(new_invoice)} 封新发票邮件")
                 for email_msg in new_invoice:
                     self.notifier.send_invoice_alert(email_msg)
+                    if email_msg.message_id:
+                        self.notified_ids.add(email_msg.message_id)
+            
+            if new_internal:
+                has_new = True
+                print(f"发现 {len(new_internal)} 封新内部邮件")
+                self.notifier.send_internal_alert(new_internal)
+                for email_msg in new_internal:
                     if email_msg.message_id:
                         self.notified_ids.add(email_msg.message_id)
             

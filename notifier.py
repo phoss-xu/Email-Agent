@@ -301,6 +301,42 @@ class Notifier:
         names = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
         return names[weekday]
 
+    def send_internal_alert(self, emails):
+        """发送内部邮件即时提醒：数量 + 类型分布（会议记录/HR/需回复）+ 主题列表"""
+        type_names = {
+            'internal_meeting': '会议记录',
+            'internal_hr': 'HR',
+            'internal_reply': '需回复',
+            'internal_other': '其他',
+        }
+        counts = {}
+        for e in emails:
+            name = type_names.get(e.category, '其他')
+            counts[name] = counts.get(name, 0) + 1
+        dist = ' · '.join(f'{name} {n}' for name, n in counts.items())
+
+        lines = []
+        lines.append(f"#### 📬 收到 {len(emails)} 封内部邮件（{dist}）")
+        lines.append("")
+        for i, e in enumerate(emails[:5], 1):
+            type_name = self._internal_type_name(e.category)
+            line = f"**{i}. {self._short_subject(e.subject)}**"
+            if type_name:
+                line += f" · {type_name}"
+            line += f" · 来自 {self._short_sender(e.sender)}"
+            lines.append(line)
+            lines.append("")
+            summary = self._short_summary(getattr(e, 'summary', ''))
+            if summary:
+                lines.append(f"> {summary}")
+                lines.append("")
+        if len(emails) > 5:
+            lines.append(f"…还有 **{len(emails) - 5}** 封未展示")
+            lines.append("")
+        lines.append("**📧 [点击查看邮箱](https://qiye.aliyun.com/alimail/)**")
+
+        self._send("📬 内部邮件提醒", '\n'.join(lines))
+
     def send_important_alert(self, email_msg):
         """发送重要邮件提醒：R2 图片版优先，失败回退纯文本"""
         if self._try_send_r2_alert(email_msg):
