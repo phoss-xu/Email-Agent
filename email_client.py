@@ -4,6 +4,7 @@ import email.message
 from email import message_from_bytes
 from email.header import decode_header
 from email.utils import parsedate_to_datetime, getaddresses
+from html import unescape as html_unescape
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
@@ -107,6 +108,15 @@ class EmailClient:
             return email_addr.split('@')[1].lower()
         return ''
     
+    @staticmethod
+    def _html_to_text(html: str) -> str:
+        """HTML 正文转纯文本：先整体移除 style/script/head 块（避免 CSS/JS 代码漏进摘要），
+        块级标签转换行保留段落感，再去剩余标签并还原 HTML 实体"""
+        text = re.sub(r'(?is)<(style|script|head)[^>]*>.*?</\1>', ' ', html)
+        text = re.sub(r'(?i)<br\s*/?>|</(?:p|div|tr|li|table|h[1-6])>', '\n', text)
+        text = re.sub(r'(?s)<[^>]+>', '', text)
+        return html_unescape(text)
+
     def _get_body(self, msg: email.message.Message) -> str:
         """提取邮件正文"""
         body = ''
@@ -125,14 +135,16 @@ class EmailClient:
                     try:
                         charset = part.get_content_charset() or 'utf-8'
                         html = part.get_payload(decode=True).decode(charset, errors='ignore')
-                        # 简单去除 HTML 标签
-                        body = re.sub(r'<[^>]+>', '', html)
+                        body = self._html_to_text(html)
                     except:
                         pass
         else:
             try:
                 charset = msg.get_content_charset() or 'utf-8'
                 body = msg.get_payload(decode=True).decode(charset, errors='ignore')
+                # 单部件 HTML 邮件（营销/系统邮件常见）同样需要去标签，否则摘要会展示原始 HTML
+                if msg.get_content_type() == 'text/html':
+                    body = self._html_to_text(body)
             except:
                 pass
         
