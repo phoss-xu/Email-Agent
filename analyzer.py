@@ -58,8 +58,8 @@ class EmailAnalyzer:
         for email_msg in emails:
             category = self._classify_email(email_msg)
             email_msg.category = category
-            # 内部邮件与外部重要邮件需要摘要
-            if category.startswith('internal') or category == 'important':
+            # 内部邮件、外部重要邮件、发票邮件需要摘要（日报与提醒中展示简述）
+            if category.startswith('internal') or category in ('important', 'invoice'):
                 email_msg.summary = self._make_summary(email_msg.body)
             result[category].append(email_msg)
         
@@ -89,7 +89,7 @@ class EmailAnalyzer:
             email_msg.match_reason = '垃圾关键词匹配'
             return 'spam'
         
-        if self._is_no_reply(subject, body):
+        if self._is_no_reply(subject, body, email_msg.sender):
             email_msg.match_reason = '系统通知类邮件'
             return 'external_normal'
         
@@ -145,9 +145,13 @@ class EmailAnalyzer:
             return ''
         return text[:max_len] + ('…' if len(text) > max_len else '')
     
-    def _is_no_reply(self, subject: str, body: str) -> bool:
-        """检查是否为无需回复的系统通知（验证码/密码提醒/订阅等），命中任一关键词即排除"""
-        return self._match_keywords(subject, body, 'no_reply_keywords')
+    def _is_no_reply(self, subject: str, body: str, sender: str = '') -> bool:
+        """检查是否为无需回复的系统通知（验证码/密码提醒/订阅/垃圾邮件提醒等），
+        命中任一关键词即排除；发件人地址含 no-reply 等系统邮箱特征同样排除"""
+        if self._match_keywords(subject, body, 'no_reply_keywords'):
+            return True
+        # 发件人地址特征：no-reply@ / mailer-daemon 等系统邮箱（阿里云邮箱的垃圾邮件提醒等）
+        return bool(re.search(r'(no-?reply|noreply|mailer-daemon|donotreply)\b', sender.lower()))
     
     def _is_invoice(self, subject: str, body: str) -> bool:
         """检查是否为发票邮件"""

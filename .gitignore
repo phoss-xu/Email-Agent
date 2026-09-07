@@ -3,6 +3,9 @@
 .env.docker
 deploy.sh
 
+# SSH 访问凭证文档（仅本地）
+.ssh_access.md
+
 # Python
 __pycache__/
 *.py[cod]

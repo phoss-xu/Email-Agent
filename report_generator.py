@@ -18,7 +18,8 @@ class ReportGenerator:
     SECTION_STYLES = {
         'important': ('var(--red)', 'tag-imp', '重要', 'imp', '⭐'),
         'invoice': ('var(--orange)', 'tag-inv', '发票', 'inv', '🧾'),
-        'spam': ('var(--gray)', 'tag-spm', '垃圾', 'spm', '🗑️'),
+        'spam': ('var(--gray)', 'tag-spm', '骚扰', 'spm', '🗑️'),
+        'external_normal': ('var(--ink-2)', 'tag-nor', '普通', 'nor', '📨'),
     }
 
     # 内部邮件子类型 → (子标题, 行标签样式, 标签文字, 锚点前缀, 图标)
@@ -26,6 +27,7 @@ class ReportGenerator:
         'internal_meeting': ('会议记录', 'tag-mtg', '会议', 'int-m', '📝'),
         'internal_hr': ('HR', 'tag-hr', 'HR', 'int-h', '👤'),
         'internal_reply': ('需回复', 'tag-reply', '需回复', 'int-r', '✉️'),
+        'internal_other': ('其他', 'tag-oth', '其他', 'int-o', '📥'),
     }
 
     @staticmethod
@@ -83,10 +85,9 @@ class ReportGenerator:
 
     def _build_internal_section(self, analysis_result: Dict) -> str:
         """构建内部邮件区块：总标题 + 各子类型小节（主题/发件人 + 摘要）"""
-        internal_keys = ('internal_meeting', 'internal_hr', 'internal_reply')
+        internal_keys = ('internal_meeting', 'internal_hr', 'internal_reply', 'internal_other')
         emails_by_type = {key: analysis_result.get(key, []) for key in internal_keys}
-        other_emails = analysis_result.get('internal_other', [])
-        total = sum(len(v) for v in emails_by_type.values()) + len(other_emails)
+        total = sum(len(v) for v in emails_by_type.values())
         if total == 0:
             return ''
 
@@ -121,7 +122,7 @@ class ReportGenerator:
 
     @staticmethod
     def _build_overview_items(analysis_result: Dict) -> str:
-        """构建概览明细：内部 N（会议 x · HR x · 需回复 x）｜ 外部 N（重要 x · 发票 x · 垃圾 x）"""
+        """构建概览明细：内部 N（会议 x · HR x · 需回复 x · 其他 x）｜ 外部 N（重要 x · 发票 x · 骚扰 x · 普通 x）"""
         internal_total = sum(len(analysis_result.get(k, [])) for k in
                              ('internal_meeting', 'internal_hr', 'internal_reply', 'internal_other'))
         external_total = len(analysis_result.get('total', [])) - internal_total
@@ -130,14 +131,14 @@ class ReportGenerator:
         if internal_total:
             sub = ' · '.join(
                 f'{name} {len(analysis_result.get(key, []))}'
-                for key, name in (('internal_meeting', '会议'), ('internal_hr', 'HR'), ('internal_reply', '需回复'))
+                for key, name in (('internal_meeting', '会议'), ('internal_hr', 'HR'), ('internal_reply', '需回复'), ('internal_other', '其他'))
                 if analysis_result.get(key)
             )
             parts.append(f'<span class="k">🏢 内部</span> <b>{internal_total}</b>' + (f'（{sub}）' if sub else ''))
         if external_total:
             sub = ' · '.join(
                 f'{name} {len(analysis_result.get(key, []))}'
-                for key, name in (('important', '重要'), ('invoice', '发票'), ('spam', '垃圾'))
+                for key, name in (('important', '重要'), ('invoice', '发票'), ('spam', '骚扰'), ('external_normal', '普通'))
                 if analysis_result.get(key)
             )
             parts.append(f'<span class="k">🌐 外部</span> <b>{external_total}</b>' + (f'（{sub}）' if sub else ''))
@@ -155,6 +156,7 @@ class ReportGenerator:
         important = analysis_result['important']
         invoice = analysis_result['invoice']
         spam = analysis_result['spam']
+        normal = analysis_result['external_normal']
 
         now = datetime.now()
         weekday_map = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
@@ -165,8 +167,9 @@ class ReportGenerator:
         # 构建分类区块（空分类不渲染）
         internal_section = self._build_internal_section(analysis_result)
         important_section = self._build_email_section(important, '外部重要邮件', 'important', show_summary=True)
-        invoice_section = self._build_email_section(invoice, '发票邮件', 'invoice')
-        spam_section = self._build_email_section(spam, '已拦截垃圾', 'spam')
+        invoice_section = self._build_email_section(invoice, '发票邮件', 'invoice', show_summary=True)
+        normal_section = self._build_email_section(normal, '普通外部邮件', 'external_normal')
+        spam_section = self._build_email_section(spam, '疑似骚扰', 'spam')
 
         # 替换模板占位符
         html = template.replace('{{TITLE}}', '邮件日报')
@@ -179,6 +182,7 @@ class ReportGenerator:
         html = html.replace('{{INTERNAL_SECTION}}', internal_section)
         html = html.replace('{{IMPORTANT_SECTION}}', important_section)
         html = html.replace('{{INVOICE_SECTION}}', invoice_section)
+        html = html.replace('{{NORMAL_SECTION}}', normal_section)
         html = html.replace('{{SPAM_SECTION}}', spam_section)
 
         return html

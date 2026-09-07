@@ -140,6 +140,8 @@
   .tag-mtg { color: var(--blue); }
   .tag-hr { color: var(--ink-2); }
   .tag-reply { color: var(--red); }
+  .tag-oth { color: var(--ink-2); }
+  .tag-nor { color: var(--ink-2); }
 
   /* 分组小标题（带计数，行内标注） */
   .group {
@@ -252,12 +254,15 @@
 <!-- 发票邮件 -->
 {{INVOICE_SECTION}}
 
+<!-- 普通外部邮件 -->
+{{NORMAL_SECTION}}
+
 <!-- 垃圾邮件 -->
 {{SPAM_SECTION}}
 
 <!-- 脚注 -->
 <div class="footnote">
-  <span>🗑️ 已拦截 {{SPAM_COUNT}} 封垃圾邮件 · 自动生成</span>
+  <span>🗑️ 疑似骚扰 {{SPAM_COUNT}} 封 · 自动生成</span>
   <a class="link" href="{{REPORT_URL}}">🔗 查看完整日报 →</a>
 </div>
 
