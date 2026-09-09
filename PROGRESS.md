@@ -1,6 +1,6 @@
 # PROGRESS.md — 项目进度交付文档
 
-> 面向下一个 agent 的当前进度快照。最后更新：2026-08-18 16:30
+> 面向下一个 agent 的当前进度快照。最后更新：2026-09-09 11:06
 > 详细部署文档见 [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## 项目是什么
@@ -25,7 +25,7 @@
 
 ## 分类规则要点
 
-1. 内部域名（aqara.com/aqara.cn）→ 子类型：会议记录 > HR > 需回复 > 其他（关键词匹配，英文用词边界 \b）
+1. 内部域名（aqara.com/aqara.cn/lumiunited.com）→ 子类型：会议记录 > HR > 需回复 > 其他（关键词匹配，英文用词边界 \b）
 2. 外部 → 发票 > 垃圾 > 通知类排除（验证码等 no_reply_keywords）> 重要（域名/关键词）> 单独发送给我（To 只有自己且无 cc）> 普通
 3. 未匹配子类的内部邮件只计总数不展示明细；摘要 = 正文开头 150 字
 
@@ -40,20 +40,23 @@
 
 - 服务器：`172.16.200.141`（`/home/xzc/SI/test/Email-Agent`，Docker Compose 容器 `email-observer`）
 - 本地分支 `dev` → GitHub `phoss-xu/Email-Agent`，**push 必须显式 `git push origin dev`**
-- 最新 commit：`7aaf2d6`（内部邮件提醒图片版 + 来一封发一封 + IMAP UID 去重 + IDLE EXPUNGE 跳过 + PROGRESS.md）
-- ✅ 服务器已部署 `7aaf2d6`（2026-08-18 16:40 验证：代码特征齐全、IDLE 正常、首次检测推送成功）
+- 最新 commit：`20b274e`（lumiunited.com 从 important_domains 迁为内部域名 + 修正 DEPLOYMENT.md 配置生效说明）
+- ✅ 服务器已部署最新配置（2026-09-09 11:06 验证：容器 Up、容器内 internal_domains 含 lumiunited.com、首次检测捕获 1 封内部邮件并成功推送钉钉、IDLE 监听正常）
+- 历史部署：`6d175a9`（2026-09-07 18:31，日报分类明细全量展示 + 单部件 HTML 转纯文本；顺带清理服务器遗留 start.sh / nginx-reports.conf / deploy.sh）
 
 ## 历史重要修复（已合入）
 
 - **IMAP 序号去重撞车**：无 Message-ID 邮件的回退标识曾用 IMAP 序号（seq），邮件被删后序号重排导致新邮件顶替旧标识被误判已提醒；已改用 IMAP UID（`_extract_uid`，RFC 3501 永久唯一）
 - **IDLE 进入被积压通知误伤**：重新进入 IDLE 时 `* N EXPUNGE` 等 untagged 通知可能抢在 `+ idling` 前到达；已改为循环跳过直到出现 `+ idling`
 - **IDLE 连接被轮询并发断开**：进入 IDLE 前 `_drain()` 清空积压通知
+- **单部件 HTML 邮件摘要暴露源码**：`_get_body` 非 multipart 分支原先不判 content-type，单部件 `text/html` 邮件（营销/系统邮件常见）原始 HTML 直接进 body，日报摘要显示 `<div style=...` 源码；已统一走 `_html_to_text`（去 style/script/head 块、块级标签转换行、还原实体）
 
 ## 关键坑（务必遵守）
 
 - IDLE 命令必须带 tag（`conn._new_tag()`），无 tag 返回 BAD
 - 进入 IDLE 前 `_drain()` 清空积压通知，否则与轮询并发时连接被服务器断开
 - rsync 禁止 `--exclude '*.html'`（会漏传 templates 目录！）
+- `domains.json` 由 Dockerfile COPY 进镜像（compose 只挂载 `./data`），改后必须 rsync + `docker compose up -d --build` 重建，单纯 `restart` 读不到宿主机新文件
 - 钉钉图片不支持 query 参数防缓存 → 用时间戳文件名
 - SMTP 测试邮件无 Message-ID → `email_client.py` 已加 `uid-{序号}` 回退
 - 企业邮箱 SMTP 强制 From=认证账号，无法伪造外部发件人（外部链路测试需真实外部邮箱）
