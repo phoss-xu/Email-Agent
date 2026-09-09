@@ -1,7 +1,8 @@
 {
   "internal_domains": [
     "aqara.com",
-    "aqara.cn"
+    "aqara.cn",
+    "lumiunited.com"
   ],
   "internal_meeting_keywords": [
     "会议纪要", "会议记录", "纪要", "例会", "周会", "月会", "晨会",
@@ -32,7 +33,6 @@
     "google.com",
     "gmail.com",
     "somfy.com",
-    "lumiunited.com",
     "qoder.com.cn",
     "microsoft.com",
     "amazon.com",

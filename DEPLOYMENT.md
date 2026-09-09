@@ -105,7 +105,7 @@ docker compose ps        # 期望 STATUS: Up
 
 ## 6. 分类规则与配置（agent 调整规则时的上下文）
 
-配置集中在 `domains.json`，改后 `docker compose restart email-observer` 生效：
+配置集中在 `domains.json`。**注意：`domains.json` 由 Dockerfile `COPY` 进镜像，docker-compose 未挂载该文件（仅挂载 `./data`）**，因此本地改动后必须 rsync 到服务器并 `docker compose up -d --build` 重建镜像才生效；单纯 `docker compose restart` 不会读取宿主机新文件（COPY 层靠后，重建会命中 apt/pip/playwright 缓存，通常仅数秒）：
 
 | 配置键 | 含义 |
 |---|---|
@@ -129,7 +129,7 @@ docker compose ps        # 期望 STATUS: Up
 | IMAP 连接失败 | 日志「连接邮箱失败」：检查 `EMAIL_USER` 密码是否错误、企业邮箱是否开启 IMAP 服务 |
 | 邮件重复提醒 | `data/notified_cache.json` 被删除或跨日；正常行为是每日自然日重置 |
 | 日报时间不对 | 容器时区：确认 `TZ=Asia/Shanghai` 生效（`docker compose exec email-observer date`） |
-| 分类不符合预期 | 调整 `domains.json` 关键词后重启；英文关键词用单词边界短语 |
+| 分类不符合预期 | 调整 `domains.json` 后需 rsync + `docker compose up -d --build` 重建（该文件 COPY 进镜像，restart 无效）；英文关键词用单词边界短语 |
 
 ## 8. 安全注意事项
 
